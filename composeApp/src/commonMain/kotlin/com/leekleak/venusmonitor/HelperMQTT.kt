@@ -9,6 +9,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.launch
 import kotlinx.io.bytestring.decodeToString
+import kotlin.random.Random
+import kotlin.time.Clock
+import kotlin.time.Clock.System.now
 import kotlin.time.Duration.Companion.hours
 
 class HelperMQTT {
@@ -46,9 +49,9 @@ class HelperMQTT {
     suspend fun sendMessage(number: Int, message: String) {
         clients[number]?.let {
             it.publish(PublishRequest("/pynqbridge/$number/recv") {
-                desiredQoS = QoS.AT_LEAST_ONCE
+                desiredQoS = QoS.EXACTLY_ONE
                 messageExpiryInterval = 12.hours
-                payload(message)
+                payload(message.reversed())
             })
         }
     }

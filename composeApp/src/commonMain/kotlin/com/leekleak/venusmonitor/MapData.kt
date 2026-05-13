@@ -1,6 +1,7 @@
 package com.leekleak.venusmonitor
 
 import kotlin.random.Random
+import kotlin.time.Clock.System.now
 
 private val TEMPERATURE_RANGE = 10f..30f
 
@@ -37,7 +38,7 @@ fun generateMapData(): List<PointData> = buildList {
                     yCord = y,
                     objectData = ObjectData.entries.random(),
                     colorData = ColorData.entries.random(),
-                    temperature = Random(now.nanosecondsOfSecond).nextDouble() * 20f + 10f,
+                    temperature = Random(now().nanosecondsOfSecond).nextDouble() * 20f + 10f,
                 )
             )
         }
