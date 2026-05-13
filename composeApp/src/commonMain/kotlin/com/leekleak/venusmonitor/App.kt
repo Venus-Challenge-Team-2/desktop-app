@@ -15,6 +15,7 @@ import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Text
@@ -46,7 +47,7 @@ fun App() {
                 Modifier.align(Alignment.Center),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                RobotTab(79, "UKs7nYSQ")
+                RobotTab(37, "CpE43hdC")
                 RobotTab(87, "s5Bpx5Yo")
             }
         }
@@ -64,7 +65,7 @@ private fun RobotTab(
     Column(
         modifier = Modifier
             .background(MaterialTheme.colorScheme.surfaceContainer, MaterialTheme.shapes.large)
-            .width(280.dp)
+            .width(250.dp)
             .padding(8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp)
