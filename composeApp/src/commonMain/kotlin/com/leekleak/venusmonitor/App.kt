@@ -31,6 +31,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.io.bytestring.ByteString
 import org.koin.compose.koinInject
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -80,19 +81,6 @@ private fun RobotTab(
                 Text(message1)
             }
         }
-        HorizontalDivider()
-        val textFieldState = rememberTextFieldState("")
-        TextField(
-            state = textFieldState,
-            label = { Text("Send message") }
-        )
-        Button(onClick = {
-            scope.launch {
-                helperMQTT.sendMessage(number, textFieldState.text.toString())
-            }
-        }) {
-            Text("Send")
-        }
 
         HorizontalDivider()
         val textFieldStateX = rememberTextFieldState("")
@@ -107,7 +95,10 @@ private fun RobotTab(
         )
         Button(onClick = {
             scope.launch {
-                helperMQTT.sendMessage(number, "0 ${textFieldStateX.text} ${textFieldStateY.text}")
+                val messag= "0${textFieldStateX.text}${textFieldStateY.text}"
+                    .map { char -> char.digitToInt().toByte() }
+                    .toByteArray()
+                helperMQTT.sendMessage(number, ByteString(messag))
             }
         }) {
             Text("Move to coordinate")

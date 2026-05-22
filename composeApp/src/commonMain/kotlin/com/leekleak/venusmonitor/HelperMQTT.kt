@@ -8,6 +8,7 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.launch
+import kotlinx.io.bytestring.ByteString
 import kotlinx.io.bytestring.decodeToString
 import kotlin.random.Random
 import kotlin.time.Clock
@@ -52,6 +53,16 @@ class HelperMQTT {
                 desiredQoS = QoS.EXACTLY_ONE
                 messageExpiryInterval = 12.hours
                 payload(message.reversed())
+            })
+        }
+    }
+
+    suspend fun sendMessage(number: Int, message: ByteString) {
+        clients[number]?.let {
+            it.publish(PublishRequest("/pynqbridge/$number/recv") {
+                desiredQoS = QoS.EXACTLY_ONE
+                messageExpiryInterval = 12.hours
+                payload(message)
             })
         }
     }
