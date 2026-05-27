@@ -1,16 +1,19 @@
 package com.leekleak.venusmonitor
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeContentPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -18,6 +21,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProvideTextStyle
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
@@ -39,21 +43,42 @@ import org.koin.compose.koinInject
 @Preview
 fun App() {
     MaterialTheme {
-        Box(
-            modifier = Modifier
-                .safeContentPadding()
-                .fillMaxSize(),
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.background
         ) {
-            Row (
-                Modifier.align(Alignment.Center),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                RobotTab(37, "CpE43hdC")
-                RobotTab(87, "s5Bpx5Yo")
+                Row(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .padding(16.dp)
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1.0f) // Takes up 40% of the horizontal screen width
+                            .fillMaxHeight()
+                    ) {
+                        RobotTab(37, "CpE43hdC")
+                    }
+                    Box(
+                        modifier = Modifier
+                            .weight(1.0f) // Takes up 40% of the horizontal screen width
+                            .fillMaxHeight()
+                    ) {
+                        RobotTab(37, "CpE43hdC")
+                    }
+                    Box(
+                        modifier = Modifier
+                            .weight(1.5f) // Takes up 60% of the horizontal screen width
+                            .fillMaxHeight()
+                    ) {
+                        CubeMapCanvas()
+                    }
+                }
             }
         }
     }
-}
 
 @Composable
 private fun RobotTab(

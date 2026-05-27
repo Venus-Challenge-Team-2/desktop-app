@@ -9,6 +9,14 @@ plugins {
     alias(libs.plugins.koin.compiler)
 }
 
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+        maven("https://oss.sonatype.org/content/repositories/snapshots/")
+    }
+}
+
 kotlin {
     jvm()
     
@@ -40,6 +48,13 @@ kotlin {
             implementation("io.insert-koin:koin-compose")
             implementation("io.insert-koin:koin-compose-viewmodel")
             implementation("org.jetbrains.kotlinx:kotlinx-io-core:0.9.0")
+            val gdxVersion = "1.13.1"
+            implementation("com.badlogicgames.gdx:gdx:${gdxVersion}")
+            implementation("com.badlogicgames.gdx:gdx-backend-lwjgl3:${gdxVersion}") // ◄ This already has everything we need
+            implementation("com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-desktop")
+            implementation(kotlin("stdlib"))
+            api("com.badlogicgames.gdx:gdx:${gdxVersion}")
+
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
@@ -54,7 +69,7 @@ kotlin {
 
 compose.desktop {
     application {
-        mainClass = "com.leekleak.venusmonitor.MainKt"
+        mainClass = "com.leekleak.venusmonitor.CubeMapKt"
 
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)

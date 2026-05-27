@@ -8,9 +8,10 @@ fun main() = application {
     initKoin {
         printLogger()
     }
+
     Window(
         onCloseRequest = ::exitApplication,
-        title = "Venus Monitor",
+        title = "Venus Monitor - Control Station",
     ) {
         App()
     }

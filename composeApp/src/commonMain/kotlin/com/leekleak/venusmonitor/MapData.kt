@@ -1,44 +1,46 @@
 package com.leekleak.venusmonitor
 
+import androidx.compose.runtime.Immutable
 import kotlin.random.Random
-import kotlin.time.Clock.System.now
 
-private val TEMPERATURE_RANGE = 10f..30f
+private const val MIN_TEMP = 10.0
+private const val MAX_TEMP = 30.0
 
-// Use val for immutability, which is preferred in modern Kotlin and for UI state in Compose
+@Immutable
 data class PointData(
-    val xCord: Int,
-    val yCord: Int,
+    val coordinates: Triple<Float, Float, Float>,
     val objectData: ObjectData,
-    val colorData: ColorData,
-    val temperature: Double,
+    var colorData: ColorData,
+    val temperature: Double
 )
 
 enum class ObjectData {
-    NO_OBJECT,
-    SMALL_CUBE,
-    BIG_CUBE,
-    MOUNTAIN
+    NO_OBJECT, SMALL_CUBE, BIG_CUBE, MOUNTAIN, HOLE
 }
-
 enum class ColorData {
-    RED,
-    BLACK,
-    BLUE,
-    GREEN,
-    WHITE,
+    RED, BLACK, BLUE, GREEN, WHITE
 }
 
+private val OBJECT_WEIGHTS = listOf(
+    ObjectData.NO_OBJECT to 30,
+    ObjectData.SMALL_CUBE to 1,
+    ObjectData.BIG_CUBE to 1,
+    ObjectData.MOUNTAIN to 1,
+    ObjectData.HOLE to 1
+)
+
+private val OBJECT_POOL: List<ObjectData> = OBJECT_WEIGHTS.flatMap { (obj, weight) ->
+    List(weight) { obj }
+}
 fun generateMapData(): List<PointData> = buildList {
-    for (x in -2..2) {
-        for (y in -2..2) {
+    for (x in -50..50) {
+        for (z in -50..50) {
             add(
                 PointData(
-                    xCord = x,
-                    yCord = y,
-                    objectData = ObjectData.entries.random(),
+                    coordinates = Triple(x * 1f, 1f, z * 1f),
+                    objectData = OBJECT_POOL.random(),
                     colorData = ColorData.entries.random(),
-                    temperature = Random(now().nanosecondsOfSecond).nextDouble() * 20f + 10f,
+                    temperature = Random.nextDouble(MIN_TEMP, MAX_TEMP)
                 )
             )
         }
