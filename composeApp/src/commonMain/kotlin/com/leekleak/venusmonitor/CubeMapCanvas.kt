@@ -1,5 +1,10 @@
 package com.leekleak.venusmonitor
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
@@ -86,21 +91,10 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                         val rightY = -sin(angleY) * moveSpeed
 
                         when (keyEvent.key) {
-                            Key.W -> {
-                                camX += forwardX; camY += forwardY; true
-                            }
-
-                            Key.S -> {
-                                camX -= forwardX; camY -= forwardY; true
-                            }
-
-                            Key.A -> {
-                                camX -= rightX; camY -= rightY; true
-                            }
-
-                            Key.D -> {
-                                camX += rightX; camY += rightY; true
-                            }
+                            Key.W -> {camX += forwardX; camY += forwardY; true}
+                            Key.S -> {camX -= forwardX; camY -= forwardY; true}
+                            Key.A -> {camX -= rightX; camY -= rightY; true}
+                            Key.D -> { camX += rightX; camY += rightY; true}
 
                             Key.DirectionUp -> {
                                 zoomScale = (zoomScale - 0.05f).coerceIn(minZoom, maxZoom)
@@ -110,9 +104,7 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                             Key.DirectionDown -> {
                                 zoomScale = (zoomScale + 0.05f).coerceIn(minZoom, maxZoom)
                                 true
-                            }
-
-                            else -> false
+                            } else -> false
                         }
                     } else false
                 }
@@ -123,6 +115,16 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                             if (event.type == PointerEventType.Scroll) {
                                 val delta = event.changes.first().scrollDelta.y
                                 zoomScale = (zoomScale - delta * 0.05f).coerceIn(minZoom, maxZoom)
+                            }
+                        }
+                    }
+                }
+                .pointerInput(Unit) {
+                    awaitPointerEventScope {
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            if (event.type == PointerEventType.Press) {
+                                focusRequester.requestFocus()
                             }
                         }
                     }
@@ -304,22 +306,28 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
             onClick = { showSettingsPanel = !showSettingsPanel },
             modifier = Modifier
                 .padding(16.dp)
-                .align(Alignment.TopEnd)
+                .align(Alignment.BottomCenter) // Center-bottom positioning
         ) {
-            Text(if (showSettingsPanel) "Close Menu" else "Map Settings")
+            Text(if (showSettingsPanel) "Hide" else "Settings")
+            focusRequester.requestFocus()
         }
 
-        if (showSettingsPanel) {
+        AnimatedVisibility(
+            visible = showSettingsPanel,
+            enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+            exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 80.dp) // Sits neatly right above the toggle button
+        ) {
             Card(
                 colors = CardDefaults.cardColors(
                     containerColor = Color(0xFF1E1E24).copy(alpha = 0.95f)
                 ),
                 elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
                 modifier = Modifier
-                    .padding(top = 70.dp, end = 16.dp)
-                    .width(240.dp)
-                    .align(Alignment.TopEnd)
-                    .clip(RoundedCornerShape(12.dp))
+                    .width(300.dp)
+                    .clip(RoundedCornerShape(16.dp))
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp),
@@ -333,6 +341,7 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
 
                     Divider(color = Color.Gray.copy(alpha = 0.5f))
 
+                    // Temperature Toggle Option Row
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
