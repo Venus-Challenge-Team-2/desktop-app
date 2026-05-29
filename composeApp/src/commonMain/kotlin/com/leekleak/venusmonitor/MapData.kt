@@ -1,17 +1,17 @@
 package com.leekleak.venusmonitor
 
-import androidx.compose.runtime.Immutable
 import kotlin.random.Random
 
 private const val MIN_TEMP = 10.0
 private const val MAX_TEMP = 30.0
 
-@Immutable
+const val MAP_SIZE_X = 50
+const val MAP_SIZE_Y = 50
+
 data class PointData(
-    val coordinates: Triple<Float, Float, Float>,
-    val objectData: ObjectData,
+    var objectData: ObjectData,
     var colorData: ColorData,
-    val temperature: Double
+    var temperature: Double
 )
 
 enum class ObjectData {
@@ -32,17 +32,13 @@ private val OBJECT_WEIGHTS = listOf(
 private val OBJECT_POOL: List<ObjectData> = OBJECT_WEIGHTS.flatMap { (obj, weight) ->
     List(weight) { obj }
 }
-fun generateMapData(): List<PointData> = buildList {
-    for (x in -50..50) {
-        for (z in -50..50) {
-            add(
-                PointData(
-                    coordinates = Triple(x * 1f, 1f, z * 1f),
-                    objectData = OBJECT_POOL.random(),
-                    colorData = ColorData.entries.random(),
-                    temperature = Random.nextDouble(MIN_TEMP, MAX_TEMP)
-                )
-            )
-        }
+
+var matrix: List<List<PointData>> = List(MAP_SIZE_Y) {
+    List(MAP_SIZE_X) {
+        PointData(
+            objectData = OBJECT_POOL.random(),
+            colorData = ColorData.entries.random(),
+            temperature = Random.nextDouble(MIN_TEMP, MAX_TEMP)
+        )
     }
 }

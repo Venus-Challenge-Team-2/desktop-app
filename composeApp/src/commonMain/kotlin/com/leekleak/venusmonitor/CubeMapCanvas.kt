@@ -19,9 +19,10 @@ import androidx.compose.ui.input.pointer.pointerInput
 import kotlin.math.cos
 import kotlin.math.sin
 
-val POINT_DATA = generateMapData()
 val SQUARE_SIZE: Float = 1f
-val MAP_SIZE: Int = 50
+val MAP_WIDTH_X: Int = matrix.firstOrNull()?.size ?: 0
+val MAP_WIDTH_Y: Int = matrix.size
+val MAX_DIMENSION: Float = maxOf(MAP_WIDTH_X, MAP_WIDTH_Y).toFloat()
 
 @Composable
 fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
@@ -96,7 +97,7 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
     ) {
         val centerX = size.width / 2f
         val centerY = size.height / 2f
-        val scale = (minOf(size.width, size.height) / (MAP_SIZE * 0.4f)) * zoomScale
+        val scale = (minOf(size.width, size.height) / (MAX_DIMENSION * 0.4f)) * zoomScale
 
         fun project(x: Float, y: Float, z: Float): Offset? {
             val tx = x - camX
@@ -108,12 +109,12 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
             val y2 = y * cos(angleX) - z1 * sin(angleX)
             val z2 = y * sin(angleX) + z1 * cos(angleX)
 
-            val cameraDistance = MAP_SIZE * 1.0f
+            val cameraDistance = MAX_DIMENSION * 1.0f
             val translatedZ = z2 + cameraDistance
 
             if (translatedZ <= 0.5f) return null
 
-            val focalLength = MAP_SIZE * 0.8f
+            val focalLength = MAX_DIMENSION * 0.8f
             val perspective = focalLength / translatedZ
 
             return Offset(
@@ -122,21 +123,25 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
             )
         }
 
-        // Clip system boundaries to avoid app layout bleeding outside canvas space
         clipRect {
-            POINT_DATA.sortedByDescending { point ->
-                val (x, _, z) = point.coordinates
+            buildList {
+                matrix.forEachIndexed { gridZ, row ->
+                    row.forEachIndexed { gridX, point ->
+                        val x = (gridX - MAP_WIDTH_X / 2f) * SQUARE_SIZE
+                        val z = (gridZ - MAP_WIDTH_Y / 2f) * SQUARE_SIZE
+                        add(Triple(x, z, point))
+                    }
+                }
+            }.sortedByDescending { (x, z, _) ->
                 (x - camX) * sin(angleY) + (z - camZ) * cos(angleY)
-            }.forEach { point ->
-                val (x, y, z) = point.coordinates
-                val sizeOffset = SQUARE_SIZE * 0.45f
+            }.forEach { (x, z, point) ->
+                val sizeOffset = SQUARE_SIZE * 0.49f
 
                 val f000 = project(x - sizeOffset, 0f, z - sizeOffset) ?: return@forEach
                 val f100 = project(x + sizeOffset, 0f, z - sizeOffset) ?: return@forEach
                 val f101 = project(x + sizeOffset, 0f, z + sizeOffset) ?: return@forEach
                 val f001 = project(x - sizeOffset, 0f, z + sizeOffset) ?: return@forEach
 
-                // Determine base tile color (Change if it's a hole object)
                 val tileColor = if (point.objectData == ObjectData.HOLE) Color(0xFF13131A) else Color(0xFF4D5E4D)
 
                 drawPath(
@@ -147,7 +152,6 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                     color = tileColor
                 )
 
-                // Skip rendering structural geometry elements for flat/empty profiles
                 if (point.objectData == ObjectData.NO_OBJECT || point.objectData == ObjectData.HOLE) return@forEach
 
                 val height = when (point.objectData) {
