@@ -20,6 +20,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import kotlin.math.cos
 import kotlin.math.sin
 
+val SHOW_TEMP: Boolean = false
 const val SQUARE_SIZE: Float = 1f
 val MAP_WIDTH_X: Int = matrix.size
 val MAP_WIDTH_Y: Int = matrix.firstOrNull()?.size ?: 0
@@ -150,7 +151,7 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                 val f101 = project(x + sizeOffset, y + sizeOffset, 0f) ?: return@forEach
                 val f001 = project(x - sizeOffset, y + sizeOffset, 0f) ?: return@forEach
 
-                val tileColor = if (point.objectData == ObjectData.HOLE) Color(0xFF13131A) else Color(0xFF4D5E4D)
+                val tileColor = if (point.objectData == ObjectData.HOLE) Color(0xFF13131A) else Color(0xFF6E7076)
 
                 drawPath(
                     path = Path().apply {
@@ -239,25 +240,27 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                         blue = baseColor.blue * 0.50f
                     )
                 )
-                if (point.objectData == ObjectData.SMALL_CUBE || point.objectData == ObjectData.BIG_CUBE) {
-                    val textHeightOffset = height + 0.3f
-                    val textPosition = project(x, y, textHeightOffset)
+                if (SHOW_TEMP) {
+                    if (point.objectData == ObjectData.SMALL_CUBE || point.objectData == ObjectData.BIG_CUBE) {
+                        val textHeightOffset = height + 0.3f
+                        val textPosition = project(x, y, textHeightOffset)
 
-                    if (textPosition != null) {
-                        drawContext.canvas.nativeCanvas.apply {
-                            val textString = "${point.temperature.toInt()}°C"
-                            val font = org.jetbrains.skia.Font(null, currentTextSize)
-                            val textLine = org.jetbrains.skia.TextLine.make(textString, font)
+                        if (textPosition != null) {
+                            drawContext.canvas.nativeCanvas.apply {
+                                val textString = "${point.temperature.toInt()}°C"
+                                val font = org.jetbrains.skia.Font(null, currentTextSize)
+                                val textLine = org.jetbrains.skia.TextLine.make(textString, font)
 
-                            val textWidth = textLine.width
-                            val centerXOffset = textPosition.x - (textWidth / 2f)
+                                val textWidth = textLine.width
+                                val centerXOffset = textPosition.x - (textWidth / 2f)
 
-                            drawTextLine(
-                                line = textLine,
-                                x = centerXOffset,
-                                y = textPosition.y,
-                                paint = textPaint
-                            )
+                                drawTextLine(
+                                    line = textLine,
+                                    x = centerXOffset,
+                                    y = textPosition.y,
+                                    paint = textPaint
+                                )
+                            }
                         }
                     }
                 }
