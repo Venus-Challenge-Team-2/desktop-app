@@ -25,8 +25,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -66,7 +68,7 @@ fun App() {
                             .weight(1.0f) // Takes up 40% of the horizontal screen width
                             .fillMaxHeight()
                     ) {
-                        RobotTab(37, "CpE43hdC")
+                        RobotTab(87, "s5Bpx5Yo")
                     }
                     Box(
                         modifier = Modifier
@@ -87,7 +89,27 @@ private fun RobotTab(
 ) {
     val helperMQTT: HelperMQTT = koinInject()
     val scope = rememberCoroutineScope()
-    val message1 by helperMQTT.getFlowBot(number, password).collectAsState("")
+    val messageFlow = remember(number, password) { helperMQTT.getFlowBot(number, password) }
+    val message1 by messageFlow.collectAsState("")
+
+    LaunchedEffect(message1) {
+        if (message1.isEmpty()) return@LaunchedEffect
+        if (message1[0] == '2') {
+            try {
+                val message = message1.map { char -> char.digitToInt().toByte() }.toByteArray()
+                val color = message[1].toInt()
+                val height = message[2].toInt()
+                val x = (message[3] * 100 + message[4] * 10 + message[5])
+                val y = (message[6] * 100 + message[7] * 10 + message[8])
+
+                if (x > 50 || y > 50) return@LaunchedEffect
+                matrix[x][y].objectData = ObjectData.entries[height]
+                matrix[x][y].colorData = ColorData.entries[color]
+            } catch (e: Exception) {
+                println(e.message)
+            }
+        }
+    }
     Column(
         modifier = Modifier
             .background(MaterialTheme.colorScheme.surfaceContainer, MaterialTheme.shapes.large)
@@ -131,7 +153,10 @@ private fun RobotTab(
         HorizontalDivider()
         Button(onClick = {
             scope.launch {
-                helperMQTT.sendMessage(number, "1")
+                val message = "1"
+                    .map { char -> char.digitToInt().toByte() }
+                    .toByteArray()
+                helperMQTT.sendMessage(number, ByteString(message))
             }
         }) {
             Text("Send Scan")

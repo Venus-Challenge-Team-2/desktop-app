@@ -69,7 +69,7 @@ kotlin {
 
 compose.desktop {
     application {
-        mainClass = "com.leekleak.venusmonitor.CubeMapKt"
+        mainClass = "com.leekleak.venusmonitor.MainKt"
 
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)

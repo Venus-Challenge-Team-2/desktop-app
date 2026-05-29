@@ -4,6 +4,9 @@ import de.kempmobil.ktor.mqtt.MqttClient
 import de.kempmobil.ktor.mqtt.PublishRequest
 import de.kempmobil.ktor.mqtt.QoS
 import de.kempmobil.ktor.mqtt.buildFilterList
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -16,6 +19,7 @@ import kotlin.time.Clock.System.now
 import kotlin.time.Duration.Companion.hours
 
 class HelperMQTT {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     val clients = mutableMapOf<Int, MqttClient>()
     fun getFlowBot(number: Int, pass: String): Flow<String> = callbackFlow {
         if (!clients.containsKey(number)) {
@@ -42,7 +46,13 @@ class HelperMQTT {
 
         awaitClose {
             collectJob.cancel()
-            launch { client.disconnect() }
+            scope.launch { 
+                try {
+                    client.disconnect()
+                } catch (e: Exception) {
+                    println("Error disconnecting MQTT client: ${e.message}")
+                }
+            }
             println("MQTT Flow closed.")
         }
     }
