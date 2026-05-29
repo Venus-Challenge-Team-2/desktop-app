@@ -68,7 +68,7 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                             true
                         }
                         Key.DirectionDown -> {
-                            zoomScale = (zoomScale - 0.05f).coerceIn(minZoom, maxZoom)
+                            zoomScale = (zoomScale + 0.05f).coerceIn(minZoom, maxZoom)
                             true
                         }
                         else -> false
@@ -89,7 +89,7 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
             .pointerInput(Unit) {
                 detectTransformGestures { _, pan, zoom, _ ->
                     angleY += pan.x * 0.005f
-                    angleX -= pan.y * 0.005f
+                    angleX += pan.y * 0.005f
                     zoomScale = (zoomScale * zoom).coerceIn(minZoom, maxZoom)
                 }
             }
@@ -104,8 +104,7 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
 
             val x1 = tx * cos(angleY) - ty * sin(angleY)
             val y1 = tx * sin(angleY) + ty * cos(angleY)
-
-            // Tilt the view on the pitch angle using Z as height
+            
             val y2 = y1 * cos(angleX) - z * sin(angleX)
             val z2 = y1 * sin(angleX) + z * cos(angleX)
 
