@@ -32,7 +32,28 @@ class HelperMQTT {
         val client = clients[number]!!
         val collectJob = launch {
             client.publishedPackets.collect { publish ->
-                trySend(publish.payload.decodeToString())
+                val string = publish.payload.decodeToString()
+                val lines = string.lines()
+                lines.forEach { line ->
+                    if (line.isEmpty()) return@forEach
+                    if (line[0] == '2') {
+                        try {
+                            val message = line.map { char -> char.digitToInt().toByte() }.toByteArray()
+                            val color = message[1].toInt()
+                            val height = message[2].toInt()
+                            val x = (message[3] * 100 + message[4] * 10 + message[5])
+                            val y = (message[6] * 100 + message[7] * 10 + message[8])
+
+                            if (x > 50 || y > 50) return@forEach
+                            matrix[x][y].objectData = ObjectData.entries[height]
+                            matrix[x][y].colorData = ColorData.entries[color]
+                        } catch (e: Exception) {
+                            println(e.message)
+                        }
+                    } else {
+                        trySend(line)
+                    }
+                }
             }
         }
 

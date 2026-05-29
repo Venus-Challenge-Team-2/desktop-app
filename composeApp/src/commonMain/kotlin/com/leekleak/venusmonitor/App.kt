@@ -28,8 +28,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.TextStyle
@@ -91,25 +94,6 @@ private fun RobotTab(
     val scope = rememberCoroutineScope()
     val messageFlow = remember(number, password) { helperMQTT.getFlowBot(number, password) }
     val message1 by messageFlow.collectAsState("")
-
-    LaunchedEffect(message1) {
-        if (message1.isEmpty()) return@LaunchedEffect
-        if (message1[0] == '2') {
-            try {
-                val message = message1.map { char -> char.digitToInt().toByte() }.toByteArray()
-                val color = message[1].toInt()
-                val height = message[2].toInt()
-                val x = (message[3] * 100 + message[4] * 10 + message[5])
-                val y = (message[6] * 100 + message[7] * 10 + message[8])
-
-                if (x > 50 || y > 50) return@LaunchedEffect
-                matrix[x][y].objectData = ObjectData.entries[height]
-                matrix[x][y].colorData = ColorData.entries[color]
-            } catch (e: Exception) {
-                println(e.message)
-            }
-        }
-    }
     Column(
         modifier = Modifier
             .background(MaterialTheme.colorScheme.surfaceContainer, MaterialTheme.shapes.large)
