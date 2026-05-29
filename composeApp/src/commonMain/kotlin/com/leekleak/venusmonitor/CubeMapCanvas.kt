@@ -13,13 +13,14 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import kotlin.math.cos
 import kotlin.math.sin
 
-val SQUARE_SIZE: Float = 1f
+const val SQUARE_SIZE: Float = 1f
 val MAP_WIDTH_X: Int = matrix.size
 val MAP_WIDTH_Y: Int = matrix.firstOrNull()?.size ?: 0
 
@@ -40,6 +41,12 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
 
     val minZoom = 0.2f
     val maxZoom = 4.0f
+
+    val textPaint = remember {
+        androidx.compose.ui.graphics.Paint().asFrameworkPaint().apply {
+            color = org.jetbrains.skia.Color.WHITE
+        }
+    }
 
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
@@ -98,13 +105,15 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
         val centerY = size.height / 2f
         val scale = (minOf(size.width, size.height) / (MAX_DIMENSION * 0.4f)) * zoomScale
 
+        val currentTextSize = 12f * zoomScale
+
         fun project(x: Float, y: Float, z: Float): Offset? {
             val tx = x - camX
             val ty = y - camY
 
             val x1 = tx * cos(angleY) - ty * sin(angleY)
             val y1 = tx * sin(angleY) + ty * cos(angleY)
-            
+
             val y2 = y1 * cos(angleX) - z * sin(angleX)
             val z2 = y1 * sin(angleX) + z * cos(angleX)
 
@@ -180,28 +189,78 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                 }, color = baseColor)
 
                 // Front Face
-                drawPath(Path().apply {
-                    moveTo(f001.x, f001.y); lineTo(f101.x, f101.y)
-                    lineTo(t101.x, t101.y); lineTo(t001.x, t001.y); close()
-                }, color = baseColor.copy(red = baseColor.red * 0.85f, green = baseColor.green * 0.85f, blue = baseColor.blue * 0.85f))
+                drawPath(
+                    Path().apply {
+                        moveTo(f001.x, f001.y); lineTo(f101.x, f101.y)
+                        lineTo(t101.x, t101.y); lineTo(t001.x, t001.y); close()
+                    },
+                    color = baseColor.copy(
+                        red = baseColor.red * 0.85f,
+                        green = baseColor.green * 0.85f,
+                        blue = baseColor.blue * 0.85f
+                    )
+                )
 
                 // Right Side Face
-                drawPath(Path().apply {
-                    moveTo(f100.x, f100.y); lineTo(f101.x, f101.y)
-                    lineTo(t101.x, t101.y); lineTo(t100.x, t100.y); close()
-                }, color = baseColor.copy(red = baseColor.red * 0.70f, green = baseColor.green * 0.70f, blue = baseColor.blue * 0.70f))
+                drawPath(
+                    Path().apply {
+                        moveTo(f100.x, f100.y); lineTo(f101.x, f101.y)
+                        lineTo(t101.x, t101.y); lineTo(t100.x, t100.y); close()
+                    },
+                    color = baseColor.copy(
+                        red = baseColor.red * 0.70f,
+                        green = baseColor.green * 0.70f,
+                        blue = baseColor.blue * 0.70f
+                    )
+                )
 
                 // Left Side Face
-                drawPath(Path().apply {
-                    moveTo(f000.x, f000.y); lineTo(f001.x, f001.y)
-                    lineTo(t001.x, t001.y); lineTo(t000.x, t000.y); close()
-                }, color = baseColor.copy(red = baseColor.red * 0.60f, green = baseColor.green * 0.60f, blue = baseColor.blue * 0.60f))
+                drawPath(
+                    Path().apply {
+                        moveTo(f000.x, f000.y); lineTo(f001.x, f001.y)
+                        lineTo(t001.x, t001.y); lineTo(t000.x, t000.y); close()
+                    },
+                    color = baseColor.copy(
+                        red = baseColor.red * 0.60f,
+                        green = baseColor.green * 0.60f,
+                        blue = baseColor.blue * 0.60f
+                    )
+                )
 
                 // Back Face
-                drawPath(Path().apply {
-                    moveTo(f000.x, f000.y); lineTo(f100.x, f100.y)
-                    lineTo(t100.x, t100.y); lineTo(t000.x, t000.y); close()
-                }, color = baseColor.copy(red = baseColor.red * 0.50f, green = baseColor.green * 0.50f, blue = baseColor.blue * 0.50f))
+                drawPath(
+                    Path().apply {
+                        moveTo(f000.x, f000.y); lineTo(f100.x, f100.y)
+                        lineTo(t100.x, t100.y); lineTo(t000.x, t000.y); close()
+                    },
+                    color = baseColor.copy(
+                        red = baseColor.red * 0.50f,
+                        green = baseColor.green * 0.50f,
+                        blue = baseColor.blue * 0.50f
+                    )
+                )
+                if (point.objectData == ObjectData.SMALL_CUBE || point.objectData == ObjectData.BIG_CUBE) {
+                    val textHeightOffset = height + 0.3f
+                    val textPosition = project(x, y, textHeightOffset)
+
+                    if (textPosition != null) {
+                        drawContext.canvas.nativeCanvas.apply {
+                            val textString = "${point.temperature.toInt()}°C"
+                            val font = org.jetbrains.skia.Font(null, currentTextSize)
+                            val textLine = org.jetbrains.skia.TextLine.make(textString, font)
+
+                            val textWidth = textLine.width
+                            val centerXOffset = textPosition.x - (textWidth / 2f)
+
+                            drawTextLine(
+                                line = textLine,
+                                x = centerXOffset,
+                                y = textPosition.y,
+                                paint = textPaint
+                            )
+                        }
+                    }
+                }
             }
         }
     }
