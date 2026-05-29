@@ -22,6 +22,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -42,6 +43,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import kotlin.math.cos
 import kotlin.math.sin
+import kotlin.random.Random
 
 const val SQUARE_SIZE: Float = 1f
 val MAP_WIDTH_X: Int = matrix.size
@@ -52,12 +54,12 @@ val MAX_DIMENSION: Float = maxOf(MAP_WIDTH_X, MAP_WIDTH_Y).toFloat()
 @Composable
 fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
     var angleX by remember { mutableStateOf(0.5f) }
-    var angleY by remember { mutableStateOf(0.7f) }
+    var angleY by remember { mutableStateOf(1f) }
 
     var camX by remember { mutableStateOf(0f) }
     var camY by remember { mutableStateOf(0f) }
 
-    var zoomScale by remember { mutableStateOf(1.0f) }
+    var zoomScale by remember { mutableStateOf(0.5f) }
 
     var showTemperature by remember { mutableStateOf(false) }
     var showSettingsPanel by remember { mutableStateOf(false) }
@@ -146,6 +148,7 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
             fun project(x: Float, y: Float, z: Float): Offset? {
                 val tx = x - camX
                 val ty = y - camY
+                val baseDepth = tx * sin(angleY) + ty * cos(angleY)
 
                 val x1 = tx * cos(angleY) - ty * sin(angleY)
                 val y1 = tx * sin(angleY) + ty * cos(angleY)
@@ -205,76 +208,60 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                         else -> 0f
                     }
 
-                    val baseColor = when (point.colorData) {
+                    val t000 = project(x - sizeOffset, y - sizeOffset, height) ?: return@forEach
+                    val t100 = project(x + sizeOffset, y - sizeOffset, height) ?: return@forEach
+                    val t101 = project(x + sizeOffset, y + sizeOffset, height) ?: return@forEach
+                    val t001 = project(x - sizeOffset, y + sizeOffset, height) ?: return@forEach
+
+                    var baseColor = when (point.colorData) {
                         ColorData.RED -> Color(0xFFD32F2F)
                         ColorData.BLACK -> Color(0xFF212121)
                         ColorData.BLUE -> Color(0xFF1976D2)
                         ColorData.GREEN -> Color(0xFF388E3C)
                         ColorData.WHITE -> Color(0xFFFFFFFF)
                     }
+                    if (point.objectData == ObjectData.MOUNTAIN) {baseColor = Color(0xFFB37C5D)}
+                    class CubeFace(val path: Path, val color: Color, val true3DDepth: Float)
 
-                    val t000 = project(x - sizeOffset, y - sizeOffset, height) ?: return@forEach
-                    val t100 = project(x + sizeOffset, y - sizeOffset, height) ?: return@forEach
-                    val t101 = project(x + sizeOffset, y + sizeOffset, height) ?: return@forEach
-                    val t001 = project(x - sizeOffset, y + sizeOffset, height) ?: return@forEach
+                    val tx = x - camX
+                    val ty = y - camY
+                    val baseDepth = tx * sin(angleY) + ty * cos(angleY)
 
-                    // Top Face
-                    drawPath(Path().apply {
-                        moveTo(t000.x, t000.y); lineTo(t100.x, t100.y)
-                        lineTo(t101.x, t101.y); lineTo(t001.x, t001.y); close()
-                    }, color = baseColor)
-
-                    // Front Face
-                    drawPath(
-                        Path().apply {
-                            moveTo(f001.x, f001.y); lineTo(f101.x, f101.y)
-                            lineTo(t101.x, t101.y); lineTo(t001.x, t001.y); close()
-                        },
-                        color = baseColor.copy(
-                            red = baseColor.red * 0.85f,
-                            green = baseColor.green * 0.85f,
-                            blue = baseColor.blue * 0.85f
+                    val localFaces = listOf(
+                        // Top Face
+                        CubeFace(
+                            path = Path().apply { moveTo(t000.x, t000.y); lineTo(t100.x, t100.y); lineTo(t101.x, t101.y); lineTo(t001.x, t001.y); close() },
+                            color = baseColor,
+                            true3DDepth = baseDepth + 0.2f
+                        ),
+                        // Front Face
+                        CubeFace(
+                            path = Path().apply { moveTo(f001.x, f001.y); lineTo(f101.x, f101.y); lineTo(t101.x, t101.y); lineTo(t001.x, t001.y); close() },
+                            color = baseColor.copy(red = baseColor.red * 0.85f, green = baseColor.green * 0.85f, blue = baseColor.blue * 0.85f),
+                            true3DDepth = baseDepth + 0.1f
+                        ),
+                        // Right Side Face
+                        CubeFace(
+                            path = Path().apply { moveTo(f100.x, f100.y); lineTo(f101.x, f101.y); lineTo(t101.x, t101.y); lineTo(t100.x, t100.y); close() },
+                            color = baseColor.copy(red = baseColor.red * 0.70f, green = baseColor.green * 0.70f, blue = baseColor.blue * 0.70f),
+                            true3DDepth = baseDepth + 0.05f
+                        ),
+                        // Left Side Face
+                        CubeFace(
+                            path = Path().apply { moveTo(f000.x, f000.y); lineTo(f001.x, f001.y); lineTo(t001.x, t001.y); lineTo(t000.x, t000.y); close() },
+                            color = baseColor.copy(red = baseColor.red * 0.60f, green = baseColor.green * 0.60f, blue = baseColor.blue * 0.60f),
+                            true3DDepth = baseDepth + 0.05f
+                        ),
+                        // Back Face
+                        CubeFace(
+                            path = Path().apply { moveTo(f000.x, f000.y); lineTo(f100.x, f100.y); lineTo(t100.x, t100.y); lineTo(t000.x, t000.y); close() },
+                            color = baseColor.copy(red = baseColor.red * 0.50f, green = baseColor.green * 0.50f, blue = baseColor.blue * 0.50f),
+                            true3DDepth = baseDepth - 0.1f
                         )
                     )
-
-                    // Right Side Face
-                    drawPath(
-                        Path().apply {
-                            moveTo(f100.x, f100.y); lineTo(f101.x, f101.y)
-                            lineTo(t101.x, t101.y); lineTo(t100.x, t100.y); close()
-                        },
-                        color = baseColor.copy(
-                            red = baseColor.red * 0.70f,
-                            green = baseColor.green * 0.70f,
-                            blue = baseColor.blue * 0.70f
-                        )
-                    )
-
-                    // Left Side Face
-                    drawPath(
-                        Path().apply {
-                            moveTo(f000.x, f000.y); lineTo(f001.x, f001.y)
-                            lineTo(t001.x, t001.y); lineTo(t000.x, t000.y); close()
-                        },
-                        color = baseColor.copy(
-                            red = baseColor.red * 0.60f,
-                            green = baseColor.green * 0.60f,
-                            blue = baseColor.blue * 0.60f
-                        )
-                    )
-
-                    // Back Face
-                    drawPath(
-                        Path().apply {
-                            moveTo(f000.x, f000.y); lineTo(f100.x, f100.y)
-                            lineTo(t100.x, t100.y); lineTo(t000.x, t000.y); close()
-                        },
-                        color = baseColor.copy(
-                            red = baseColor.red * 0.50f,
-                            green = baseColor.green * 0.50f,
-                            blue = baseColor.blue * 0.50f
-                        )
-                    )
+                    localFaces.sortedBy { it.true3DDepth }.forEach { face ->
+                        drawPath(path = face.path, color = face.color)
+                    }
                     if (showTemperature) {
                         if (point.objectData == ObjectData.SMALL_CUBE || point.objectData == ObjectData.BIG_CUBE) {
                             val textHeightOffset = height + 0.3f
@@ -303,6 +290,22 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
             }
         }
         Button(
+            onClick = {
+                List(MAP_SIZE_Y) {
+                PointData(
+                    objectData = ObjectData.NO_OBJECT,
+                    colorData = ColorData.entries.random(),
+                    temperature = Random.nextDouble(MIN_TEMP, MAX_TEMP)
+                )
+            } },
+            modifier = Modifier
+                .padding(16.dp)
+                .align(Alignment.BottomStart) // Center-bottom positioning
+        ) {
+            Text("Clear Map")
+            focusRequester.requestFocus()
+        }
+        Button(
             onClick = { showSettingsPanel = !showSettingsPanel },
             modifier = Modifier
                 .padding(16.dp)
@@ -318,7 +321,7 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
             exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 80.dp) // Sits neatly right above the toggle button
+                .padding(bottom = 80.dp)
         ) {
             Card(
                 colors = CardDefaults.cardColors(
@@ -339,9 +342,7 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                         style = MaterialTheme.typography.titleMedium
                     )
 
-                    Divider(color = Color.Gray.copy(alpha = 0.5f))
-
-                    // Temperature Toggle Option Row
+                    HorizontalDivider(color = Color.Gray.copy(alpha = 0.5f))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
