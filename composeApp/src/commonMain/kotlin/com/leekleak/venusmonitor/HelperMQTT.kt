@@ -44,7 +44,6 @@ class HelperMQTT {
                             val x = (message[3] * 100 + message[4] * 10 + message[5])
                             val y = (message[6] * 100 + message[7] * 10 + message[8])
 
-                            if (x > 50 || y > 50) return@forEach
                             matrix[x][y].objectData = ObjectData.entries[height]
                             matrix[x][y].colorData = ColorData.entries[color]
                         } catch (e: Exception) {
