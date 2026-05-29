@@ -33,8 +33,8 @@ private val OBJECT_POOL: List<ObjectData> = OBJECT_WEIGHTS.flatMap { (obj, weigh
     List(weight) { obj }
 }
 
-var matrix: List<List<PointData>> = List(MAP_SIZE_Y) {
-    List(MAP_SIZE_X) {
+var matrix: List<List<PointData>> = List(MAP_SIZE_X) {
+    List(MAP_SIZE_Y) {
         PointData(
             objectData = OBJECT_POOL.random(),
             colorData = ColorData.entries.random(),
@@ -42,3 +42,4 @@ var matrix: List<List<PointData>> = List(MAP_SIZE_Y) {
         )
     }
 }
+

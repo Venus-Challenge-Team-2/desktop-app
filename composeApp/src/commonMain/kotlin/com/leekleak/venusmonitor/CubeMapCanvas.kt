@@ -20,17 +20,18 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 val SQUARE_SIZE: Float = 1f
-val MAP_WIDTH_X: Int = matrix.firstOrNull()?.size ?: 0
-val MAP_WIDTH_Y: Int = matrix.size
+val MAP_WIDTH_X: Int = matrix.size
+val MAP_WIDTH_Y: Int = matrix.firstOrNull()?.size ?: 0
+
 val MAX_DIMENSION: Float = maxOf(MAP_WIDTH_X, MAP_WIDTH_Y).toFloat()
 
 @Composable
 fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
-    var angleX by remember { mutableStateOf(-0.5f) }
+    var angleX by remember { mutableStateOf(0.5f) }
     var angleY by remember { mutableStateOf(0.7f) }
 
     var camX by remember { mutableStateOf(0f) }
-    var camZ by remember { mutableStateOf(0f) }
+    var camY by remember { mutableStateOf(0f) }
 
     var zoomScale by remember { mutableStateOf(1.0f) }
 
@@ -52,16 +53,16 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
             .onKeyEvent { keyEvent ->
                 if (keyEvent.type == KeyEventType.KeyDown) {
                     val forwardX = sin(angleY) * moveSpeed
-                    val forwardZ = cos(angleY) * moveSpeed
+                    val forwardY = cos(angleY) * moveSpeed
                     val rightX = cos(angleY) * moveSpeed
-                    val rightZ = -sin(angleY) * moveSpeed
+                    val rightY = -sin(angleY) * moveSpeed
 
                     when (keyEvent.key) {
-                        Key.W -> { camX += forwardX; camZ += forwardZ; true }
-                        Key.S -> { camX -= forwardX; camZ -= forwardZ; true }
-                        Key.A -> { camX -= rightX; camZ -= rightZ; true }
-                        Key.D -> { camX += rightX; camZ += rightZ; true }
-                        // Arrow Key Zooming Bindings
+                        Key.W -> { camX += forwardX; camY += forwardY; true }
+                        Key.S -> { camX -= forwardX; camY -= forwardY; true }
+                        Key.A -> { camX -= rightX; camY -= rightY; true }
+                        Key.D -> { camX += rightX; camY += rightY; true }
+
                         Key.DirectionUp -> {
                             zoomScale = (zoomScale + 0.05f).coerceIn(minZoom, maxZoom)
                             true
@@ -80,7 +81,6 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                         val event = awaitPointerEvent()
                         if (event.type == PointerEventType.Scroll) {
                             val delta = event.changes.first().scrollDelta.y
-                            // Scroll up zooms in, scroll down zooms out
                             zoomScale = (zoomScale - delta * 0.05f).coerceIn(minZoom, maxZoom)
                         }
                     }
@@ -90,7 +90,6 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                 detectTransformGestures { _, pan, zoom, _ ->
                     angleY += pan.x * 0.005f
                     angleX -= pan.y * 0.005f
-                    // Multiplies the zoom variable by the pinch factor change
                     zoomScale = (zoomScale * zoom).coerceIn(minZoom, maxZoom)
                 }
             }
@@ -101,16 +100,17 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
 
         fun project(x: Float, y: Float, z: Float): Offset? {
             val tx = x - camX
-            val tz = z - camZ
+            val ty = y - camY
 
-            val x1 = tx * cos(angleY) - tz * sin(angleY)
-            val z1 = tx * sin(angleY) + tz * cos(angleY)
+            val x1 = tx * cos(angleY) - ty * sin(angleY)
+            val y1 = tx * sin(angleY) + ty * cos(angleY)
 
-            val y2 = y * cos(angleX) - z1 * sin(angleX)
-            val z2 = y * sin(angleX) + z1 * cos(angleX)
+            // Tilt the view on the pitch angle using Z as height
+            val y2 = y1 * cos(angleX) - z * sin(angleX)
+            val z2 = y1 * sin(angleX) + z * cos(angleX)
 
             val cameraDistance = MAX_DIMENSION * 1.0f
-            val translatedZ = z2 + cameraDistance
+            val translatedZ = y2 + cameraDistance
 
             if (translatedZ <= 0.5f) return null
 
@@ -119,28 +119,28 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
 
             return Offset(
                 x = centerX + x1 * scale * perspective,
-                y = centerY - y2 * scale * perspective
+                y = centerY - z2 * scale * perspective
             )
         }
 
         clipRect {
             buildList {
-                matrix.forEachIndexed { gridZ, row ->
-                    row.forEachIndexed { gridX, point ->
+                matrix.forEachIndexed { gridX, row ->
+                    row.forEachIndexed { gridY, point ->
                         val x = (gridX - MAP_WIDTH_X / 2f) * SQUARE_SIZE
-                        val z = (gridZ - MAP_WIDTH_Y / 2f) * SQUARE_SIZE
-                        add(Triple(x, z, point))
+                        val y = (gridY - MAP_WIDTH_Y / 2f) * SQUARE_SIZE
+                        add(Triple(x, y, point))
                     }
                 }
-            }.sortedByDescending { (x, z, _) ->
-                (x - camX) * sin(angleY) + (z - camZ) * cos(angleY)
-            }.forEach { (x, z, point) ->
+            }.sortedByDescending { (x, y, _) ->
+                (x - camX) * sin(angleY) + (y - camY) * cos(angleY)
+            }.forEach { (x, y, point) ->
                 val sizeOffset = SQUARE_SIZE * 0.49f
 
-                val f000 = project(x - sizeOffset, 0f, z - sizeOffset) ?: return@forEach
-                val f100 = project(x + sizeOffset, 0f, z - sizeOffset) ?: return@forEach
-                val f101 = project(x + sizeOffset, 0f, z + sizeOffset) ?: return@forEach
-                val f001 = project(x - sizeOffset, 0f, z + sizeOffset) ?: return@forEach
+                val f000 = project(x - sizeOffset, y - sizeOffset, 0f) ?: return@forEach
+                val f100 = project(x + sizeOffset, y - sizeOffset, 0f) ?: return@forEach
+                val f101 = project(x + sizeOffset, y + sizeOffset, 0f) ?: return@forEach
+                val f001 = project(x - sizeOffset, y + sizeOffset, 0f) ?: return@forEach
 
                 val tileColor = if (point.objectData == ObjectData.HOLE) Color(0xFF13131A) else Color(0xFF4D5E4D)
 
@@ -169,10 +169,10 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                     ColorData.WHITE -> Color(0xFFFFFFFF)
                 }
 
-                val t000 = project(x - sizeOffset, height, z - sizeOffset) ?: return@forEach
-                val t100 = project(x + sizeOffset, height, z - sizeOffset) ?: return@forEach
-                val t101 = project(x + sizeOffset, height, z + sizeOffset) ?: return@forEach
-                val t001 = project(x - sizeOffset, height, z + sizeOffset) ?: return@forEach
+                val t000 = project(x - sizeOffset, y - sizeOffset, height) ?: return@forEach
+                val t100 = project(x + sizeOffset, y - sizeOffset, height) ?: return@forEach
+                val t101 = project(x + sizeOffset, y + sizeOffset, height) ?: return@forEach
+                val t001 = project(x - sizeOffset, y + sizeOffset, height) ?: return@forEach
 
                 // Top Face
                 drawPath(Path().apply {
