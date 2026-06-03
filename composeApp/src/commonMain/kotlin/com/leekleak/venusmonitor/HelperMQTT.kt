@@ -13,9 +13,6 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.launch
 import kotlinx.io.bytestring.ByteString
 import kotlinx.io.bytestring.decodeToString
-import kotlin.random.Random
-import kotlin.time.Clock
-import kotlin.time.Clock.System.now
 import kotlin.time.Duration.Companion.hours
 
 class HelperMQTT {
@@ -63,7 +60,7 @@ class HelperMQTT {
                 } else {
                     trySend("Connection Rejected")
                 }
-            }.onFailure { exception ->
+            }.onFailure { _ ->
                 trySend("Connection Failed")
             }
         }
@@ -81,16 +78,6 @@ class HelperMQTT {
         }
     }
 
-    suspend fun sendMessage(number: Int, message: String) {
-        clients[number]?.let {
-            it.publish(PublishRequest("/pynqbridge/$number/recv") {
-                desiredQoS = QoS.EXACTLY_ONE
-                messageExpiryInterval = 12.hours
-                payload(message.reversed())
-            })
-        }
-    }
-
     suspend fun sendMessage(number: Int, message: ByteString) {
         clients[number]?.let {
             it.publish(PublishRequest("/pynqbridge/$number/recv") {
@@ -99,5 +86,19 @@ class HelperMQTT {
                 payload(message)
             })
         }
+    }
+
+    suspend fun moveToCoordinate(number: Int, x: Int, y: Int) {
+        val message = "0${x.toString().padStart(3, '0')}${y.toString().padStart(3, '0')}"
+            .map { char -> char.digitToInt().toByte() }
+            .toByteArray()
+        sendMessage(number, ByteString(message))
+    }
+
+    suspend fun scan(number: Int) {
+        val message = "1"
+            .map { char -> char.digitToInt().toByte() }
+            .toByteArray()
+        sendMessage(number, ByteString(message))
     }
 }

@@ -10,37 +10,28 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeContentPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import kotlinx.io.bytestring.ByteString
 import org.koin.compose.koinInject
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -126,10 +117,9 @@ private fun RobotTab(
         )
         Button(onClick = {
             scope.launch {
-                val messag= "0${textFieldStateX.text}${textFieldStateY.text}"
-                    .map { char -> char.digitToInt().toByte() }
-                    .toByteArray()
-                helperMQTT.sendMessage(number, ByteString(messag))
+                val x = textFieldStateX.text.toString().toInt()
+                val y = textFieldStateY.text.toString().toInt()
+                helperMQTT.moveToCoordinate(number, x, y)
             }
         }) {
             Text("Move to coordinate")
@@ -137,10 +127,7 @@ private fun RobotTab(
         HorizontalDivider()
         Button(onClick = {
             scope.launch {
-                val message = "1"
-                    .map { char -> char.digitToInt().toByte() }
-                    .toByteArray()
-                helperMQTT.sendMessage(number, ByteString(message))
+                helperMQTT.scan(number)
             }
         }) {
             Text("Send Scan")
