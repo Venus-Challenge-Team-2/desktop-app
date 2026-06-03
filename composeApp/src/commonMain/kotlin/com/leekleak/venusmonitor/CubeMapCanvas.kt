@@ -87,29 +87,34 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                         val rightY = -sin(angleY) * moveSpeed
 
                         when (keyEvent.key) {
+                            // Movement WASD
                             Key.W -> { camX += forwardX; camY += forwardY; true }
                             Key.S -> { camX -= forwardX; camY -= forwardY; true }
                             Key.A -> { camX -= rightX; camY -= rightY; true }
                             Key.D -> { camX += rightX; camY += rightY; true }
+
+                            // Arrow keys Zoom
                             Key.DirectionUp -> { zoomScale = (zoomScale - 0.05f).coerceIn(minZoom, maxZoom); true }
                             Key.DirectionDown -> { zoomScale = (zoomScale + 0.05f).coerceIn(minZoom, maxZoom); true }
                             else -> false
                         }
                     } else false
                 }
+                // Mouse scroll zoom
                 .pointerInput(Unit) {
                     awaitPointerEventScope {
                         while (true) {
                             val event = awaitPointerEvent()
                             if (event.type == PointerEventType.Scroll) {
                                 val delta = event.changes.first().scrollDelta.y
-                                zoomScale = (zoomScale - delta * 0.05f).coerceIn(minZoom, maxZoom)
+                                zoomScale = (zoomScale - delta * 0.1f).coerceIn(minZoom, maxZoom)
                             } else if (event.type == PointerEventType.Press) {
                                 focusRequester.requestFocus()
                             }
                         }
                     }
                 }
+                // Touchpad zoom
                 .pointerInput(Unit) {
                     detectTransformGestures { _, pan, zoom, _ ->
                         angleY += pan.x * 0.005f
@@ -161,22 +166,22 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
 
             clipRect {
                 val font = org.jetbrains.skia.Font(null, currentTextSize)
-                renderList.forEach { op ->
-                    when (op) {
+                renderList.forEach { operation ->
+                    when (operation) {
                         is RenderOp.Polygon -> {
                             sharedPath.reset()
-                            val first = op.points.firstOrNull() ?: return@forEach
+                            val first = operation.points.firstOrNull() ?: return@forEach
                             sharedPath.moveTo(first.x, first.y)
-                            for (pIdx in 1 until op.points.size) {
-                                sharedPath.lineTo(op.points[pIdx].x, op.points[pIdx].y)
+                            for (pIdx in 1 until operation.points.size) {
+                                sharedPath.lineTo(operation.points[pIdx].x, operation.points[pIdx].y)
                             }
                             sharedPath.close()
-                            drawPath(path = sharedPath, color = op.color)
+                            drawPath(path = sharedPath, color = operation.color)
                         }
                         is RenderOp.Text -> {
                             drawContext.canvas.nativeCanvas.apply {
-                                val textLine = org.jetbrains.skia.TextLine.make(op.text, font)
-                                drawTextLine(textLine, op.position.x - (textLine.width / 2f), op.position.y, textPaint)
+                                val textLine = org.jetbrains.skia.TextLine.make(operation.text, font)
+                                drawTextLine(textLine, operation.position.x - (textLine.width / 2f), operation.position.y, textPaint)
                             }
                         }
                     }
@@ -248,14 +253,14 @@ fun renderObject(
     val tx = x - camX
     val ty = y - camY
     val baseDepth = tx * sin(angleY) + ty * cos(angleY)
-    val sizeOffset = SQUARE_SIZE * 0.49f
+    val sizeOffset = SQUARE_SIZE * 0.5f
 
     val f000 = project(x - sizeOffset, y - sizeOffset, 0f) ?: return
     val f100 = project(x + sizeOffset, y - sizeOffset, 0f) ?: return
     val f101 = project(x + sizeOffset, y + sizeOffset, 0f) ?: return
     val f001 = project(x - sizeOffset, y + sizeOffset, 0f) ?: return
 
-    val tileColor = if (point.objectData == ObjectData.HOLE) Color(0xFF13131A) else Color(0xFF3A3B40)
+    val tileColor = if (point.objectData == ObjectData.HOLE) Color(0xFF13131A) else Color(0xFF464A51)
     renderList.add(RenderOp.Polygon(baseDepth + 100f, listOf(f000, f100, f101, f001), tileColor))
 
     if (point.objectData == ObjectData.NO_OBJECT || point.objectData == ObjectData.HOLE) return
@@ -279,7 +284,7 @@ fun renderObject(
         ColorData.GREEN -> Color(0xFF388E3C)
         ColorData.WHITE -> Color(0xFFFFFFFF)
     }
-    if (point.objectData == ObjectData.MOUNTAIN) baseColor = Color(0xFFB37C5D)
+    if (point.objectData == ObjectData.MOUNTAIN) baseColor = Color(0xFF8D6554)
 
     val isFaceVisible = { p1: Offset, p2: Offset, p3: Offset ->
         (p2.x - p1.x) * (p3.y - p1.y) - (p2.y - p1.y) * (p3.x - p1.x) > 0
