@@ -37,6 +37,8 @@ val MAP_WIDTH_X: Int = MAP_MATRIX.size
 val MAP_WIDTH_Y: Int = MAP_MATRIX.firstOrNull()?.size ?: 0
 val MAX_DIMENSION: Float = maxOf(MAP_WIDTH_X, MAP_WIDTH_Y).toFloat()
 
+var showTemperature = false
+var showSettingsPanel = false
 sealed class RenderOp(val depth: Float) {
     class Polygon(depth: Float, val points: List<Offset>, val color: Color) : RenderOp(depth)
     class Text(depth: Float, val text: String, val position: Offset) : RenderOp(depth)
@@ -44,20 +46,18 @@ sealed class RenderOp(val depth: Float) {
 
 @Composable
 fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
-    // Map as it is (current)
-    val currentMapState = remember {
+    var currentMapState = remember {
         mutableStateListOf<MutableList<PointData>>().apply {
             MAP_MATRIX.forEach { row -> add(row.toMutableList()) }
         }
     }
-
     var angleX by remember { mutableStateOf(0.5f) }
     var angleY by remember { mutableStateOf(1f) }
     var camX by remember { mutableStateOf(0f) }
     var camY by remember { mutableStateOf(0f) }
     var zoomScale by remember { mutableStateOf(0.5f) }
-    var showTemperature by remember { mutableStateOf(false) }
-    var showSettingsPanel by remember { mutableStateOf(false) }
+    //var showTemperature by remember { mutableStateOf(false) }
+    //var showSettingsPanel by remember { mutableStateOf(false) }
 
     val focusRequester = remember { FocusRequester() }
     val moveSpeed = 2.0f
@@ -71,202 +71,215 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
         }
     }
 
+
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
     }
 
     LaunchedEffect(Unit) {
-        currentMapState.addAll(currentMapState)
-        delay(100)
+        while (true) {
+            currentMapState.clear()
+            currentMapState = mutableStateListOf<MutableList<PointData>>().apply {
+                MAP_MATRIX.forEach { row -> add(row.toMutableList()) }
+            }
+            delay(100)
+        }
     }
+    Column (Modifier.fillMaxHeight()){
+        Box(modifier = modifier.weight(1f)) {
+            Canvas(
+                modifier = modifier
+                    .background(Color(0xFF13131A))
+                    .focusRequester(focusRequester)
+                    .focusable()
+                    .onKeyEvent { keyEvent ->
+                        if (keyEvent.type == KeyEventType.KeyDown) {
+                            val forwardX = sin(angleY) * moveSpeed
+                            val forwardY = cos(angleY) * moveSpeed
+                            val rightX = cos(angleY) * moveSpeed
+                            val rightY = -sin(angleY) * moveSpeed
 
-    Box(modifier = modifier) {
-        Canvas(
-            modifier = modifier
-                .background(Color(0xFF13131A))
-                .focusRequester(focusRequester)
-                .focusable()
-                .onKeyEvent { keyEvent ->
-                    if (keyEvent.type == KeyEventType.KeyDown) {
-                        val forwardX = sin(angleY) * moveSpeed
-                        val forwardY = cos(angleY) * moveSpeed
-                        val rightX = cos(angleY) * moveSpeed
-                        val rightY = -sin(angleY) * moveSpeed
+                            when (keyEvent.key) {
+                                // Movement WASD
+                                Key.W -> { camX += forwardX; camY += forwardY; true }
+                                Key.S -> { camX -= forwardX; camY -= forwardY; true }
+                                Key.A -> { camX -= rightX; camY -= rightY; true }
+                                Key.D -> { camX += rightX; camY += rightY; true }
 
-                        when (keyEvent.key) {
-                            // Movement WASD
-                            Key.W -> { camX += forwardX; camY += forwardY; true }
-                            Key.S -> { camX -= forwardX; camY -= forwardY; true }
-                            Key.A -> { camX -= rightX; camY -= rightY; true }
-                            Key.D -> { camX += rightX; camY += rightY; true }
-
-                            // Arrow keys Zoom
-                            Key.DirectionUp -> { zoomScale = (zoomScale - 0.05f).coerceIn(minZoom, maxZoom); true }
-                            Key.DirectionDown -> { zoomScale = (zoomScale + 0.05f).coerceIn(minZoom, maxZoom); true }
-                            else -> false
-                        }
-                    } else false
-                }
-                // Mouse scroll zoom
-                .pointerInput(Unit) {
-                    awaitPointerEventScope {
-                        while (true) {
-                            val event = awaitPointerEvent()
-                            if (event.type == PointerEventType.Scroll) {
-                                val delta = event.changes.first().scrollDelta.y
-                                zoomScale = (zoomScale - delta * 0.1f).coerceIn(minZoom, maxZoom)
+                                // Arrow keys Zoom
+                                Key.DirectionUp -> { zoomScale = (zoomScale - 0.05f).coerceIn(minZoom, maxZoom); true }
+                                Key.DirectionDown -> { zoomScale = (zoomScale + 0.05f).coerceIn(minZoom, maxZoom); true }
+                                else -> false
                             }
-                            // click inside sim to focus and be able to move and zoom
-                            else if (event.type == PointerEventType.Press) {
-                                focusRequester.requestFocus()
+                        } else false
+                    }
+                    // Mouse scroll zoom
+                    .pointerInput(Unit) {
+                        awaitPointerEventScope {
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                if (event.type == PointerEventType.Scroll) {
+                                    val delta = event.changes.first().scrollDelta.y
+                                    zoomScale = (zoomScale - delta * 0.1f).coerceIn(minZoom, maxZoom)
+                                }
+                                // click inside sim to focus and be able to move and zoom
+                                else if (event.type == PointerEventType.Press) {
+                                    focusRequester.requestFocus()
+                                }
                             }
                         }
                     }
-                }
-                // Touchpad zoom
-                .pointerInput(Unit) {
-                    detectTransformGestures { _, pan, zoom, _ ->
-                        angleY += pan.x * 0.005f
-                        angleX += pan.y * 0.005f
-                        zoomScale = (zoomScale * zoom).coerceIn(minZoom, maxZoom)
-                    }
-                }
-        ) {
-            val centerX = size.width / 2f
-            val centerY = size.height / 2f
-            val scale = (minOf(size.width, size.height) / (MAX_DIMENSION * 0.4f)) * zoomScale
-            val currentTextSize = 12f * zoomScale
-            val cameraDistance = MAX_DIMENSION * 1.0f
-            val focalLength = MAX_DIMENSION * 0.8f
-
-            fun project(x: Float, y: Float, z: Float): Offset? {
-                val tx = x - camX
-                val ty = y - camY
-                val x1 = tx * cos(angleY) - ty * sin(angleY)
-                val y1 = tx * sin(angleY) + ty * cos(angleY)
-                val y2 = y1 * cos(angleX) - z * sin(angleX)
-                val z2 = y1 * sin(angleX) + z * cos(angleX)
-                val translatedZ = y2 + cameraDistance
-
-                if (translatedZ <= 0.5f) return null
-                val perspective = focalLength / translatedZ
-                return Offset(centerX + x1 * scale * perspective, centerY - z2 * scale * perspective)
-            }
-
-            val renderList = ArrayList<RenderOp>(currentMapState.size * MAP_WIDTH_Y * 6)
-
-            currentMapState.forEachIndexed { gridX, row ->
-                row.forEachIndexed { gridY, point ->
-                    val x = (gridX - MAP_WIDTH_X / 2f) * SQUARE_SIZE
-                    val y = (gridY - MAP_WIDTH_Y / 2f) * SQUARE_SIZE
-
-                    renderObject(
-                        x = x,
-                        y = y,
-                        point = point,
-                        camX = camX,
-                        camY = camY,
-                        angleX = angleX,
-                        angleY = angleY,
-                        showTemperature = showTemperature,
-                        project = ::project,
-                        renderList = renderList
-                    )
-                }
-            }
-
-            renderList.sortByDescending { it.depth }
-
-            clipRect {
-                val font = org.jetbrains.skia.Font(null, currentTextSize)
-                renderList.forEach { operation ->
-                    when (operation) {
-                        is RenderOp.Polygon -> {
-                            sharedPath.reset()
-                            val first = operation.points.firstOrNull() ?: return@forEach
-                            sharedPath.moveTo(first.x, first.y)
-                            for (pIdx in 1 until operation.points.size) {
-                                sharedPath.lineTo(operation.points[pIdx].x, operation.points[pIdx].y)
-                            }
-                            sharedPath.close()
-                            drawPath(path = sharedPath, color = operation.color)
-                        }
-                        is RenderOp.Text -> {
-                            drawContext.canvas.nativeCanvas.apply {
-                                val textLine = org.jetbrains.skia.TextLine.make(operation.text, font)
-                                drawTextLine(textLine, operation.position.x - (textLine.width / 2f), operation.position.y, textPaint)
-                            }
+                    // Touchpad zoom
+                    .pointerInput(Unit) {
+                        detectTransformGestures { _, pan, zoom, _ ->
+                            angleY += pan.x * 0.005f
+                            angleX += pan.y * 0.005f
+                            zoomScale = (zoomScale * zoom).coerceIn(minZoom, maxZoom)
                         }
                     }
-                }
-            }
-        }
-
-        Button(
-            onClick = { showSettingsPanel = !showSettingsPanel },
-            modifier = Modifier.padding(10.dp).align(Alignment.BottomCenter)
-        ) {
-            Text(if (showSettingsPanel) "Hide" else "Settings")
-        }
-
-        AnimatedVisibility(
-            visible = showSettingsPanel,
-            enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
-            exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
-            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 80.dp)
-        ) {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E24).copy(alpha = 0.95f)),
-                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-                modifier = Modifier.width(300.dp).clip(RoundedCornerShape(10.dp))
             ) {
-                Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text("Show Temperature", color = Color.White)
-                        Switch(checked = showTemperature, onCheckedChange = { showTemperature = it })
+                val centerX = size.width / 2f
+                val centerY = size.height / 2f
+                val scale = (minOf(size.width, size.height) / (MAX_DIMENSION * 0.4f)) * zoomScale
+                val currentTextSize = 12f * zoomScale
+                val cameraDistance = MAX_DIMENSION * 1.0f
+                val focalLength = MAX_DIMENSION * 0.8f
+
+                fun project(x: Float, y: Float, z: Float): Offset? {
+                    val tx = x - camX
+                    val ty = y - camY
+                    val x1 = tx * cos(angleY) - ty * sin(angleY)
+                    val y1 = tx * sin(angleY) + ty * cos(angleY)
+                    val y2 = y1 * cos(angleX) - z * sin(angleX)
+                    val z2 = y1 * sin(angleX) + z * cos(angleX)
+                    val translatedZ = y2 + cameraDistance
+
+                    if (translatedZ <= 0.5f) return null
+                    val perspective = focalLength / translatedZ
+                    return Offset(centerX + x1 * scale * perspective, centerY - z2 * scale * perspective)
+                }
+
+                val renderList = ArrayList<RenderOp>(currentMapState.size * MAP_WIDTH_Y * 6)
+
+                currentMapState.forEachIndexed { gridX, row ->
+                    row.forEachIndexed { gridY, point ->
+                        val x = (gridX - MAP_WIDTH_X / 2f) * SQUARE_SIZE
+                        val y = (gridY - MAP_WIDTH_Y / 2f) * SQUARE_SIZE
+
+                        renderObject(
+                            x = x,
+                            y = y,
+                            point = point,
+                            camX = camX,
+                            camY = camY,
+                            angleX = angleX,
+                            angleY = angleY,
+                            showTemperature = showTemperature,
+                            project = ::project,
+                            renderList = renderList
+                        )
                     }
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically){
-                        Button(
-                            onClick = {
-                                val emptyMap = List(currentMapState.size) {
-                                    MutableList(MAP_WIDTH_Y) {
-                                        PointData(
-                                            objectData = ObjectData.NO_OBJECT,
-                                            colorData = ColorData.entries.random(),
-                                            temperature = Random.nextDouble(MIN_TEMP, MAX_TEMP)
-                                        )
-                                    }
+                }
+
+                renderList.sortByDescending { it.depth }
+
+                clipRect {
+                    val font = org.jetbrains.skia.Font(null, currentTextSize)
+                    renderList.forEach { operation ->
+                        when (operation) {
+                            is RenderOp.Polygon -> {
+                                sharedPath.reset()
+                                val first = operation.points.firstOrNull() ?: return@forEach
+                                sharedPath.moveTo(first.x, first.y)
+                                for (pIdx in 1 until operation.points.size) {
+                                    sharedPath.lineTo(operation.points[pIdx].x, operation.points[pIdx].y)
                                 }
-                                currentMapState.clear()
-                                currentMapState.addAll(emptyMap)
-                                focusRequester.requestFocus()
+                                sharedPath.close()
+                                drawPath(path = sharedPath, color = operation.color)
                             }
-                        ) {
-                            Text("Clear Map")
-                        }
-                    }
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically){
-                        Button(
-                            onClick = {
-                                val randomMap = List(currentMapState.size) {
-                                    MutableList(MAP_SIZE_Y) {
-                                        PointData(
-                                            objectData = OBJECT_POOL.random(),
-                                            colorData = ColorData.entries.random(),
-                                            temperature = Random.nextDouble(MIN_TEMP, MAX_TEMP)
-                                        )
-                                    }
+
+                            is RenderOp.Text -> {
+                                drawContext.canvas.nativeCanvas.apply {
+                                    val textLine = org.jetbrains.skia.TextLine.make(operation.text, font)
+                                    drawTextLine(
+                                        textLine,
+                                        operation.position.x - (textLine.width / 2f),
+                                        operation.position.y,
+                                        textPaint
+                                    )
                                 }
-                                currentMapState.clear()
-                                currentMapState.addAll(randomMap)
-                                focusRequester.requestFocus()
                             }
-                        ) {
-                            Text("Random Map")
                         }
                     }
                 }
             }
+        }
+        Column (Modifier.height(200.dp)){
+
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E24).copy(alpha = 0.95f)),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                    modifier = Modifier.width(300.dp).clip(RoundedCornerShape(10.dp))
+                ) {
+                    Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Show Temperature", color = Color.White)
+                            Switch(checked = showTemperature, onCheckedChange = { showTemperature = it })
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Button(
+                                onClick = {
+                                    val emptyMap = List(currentMapState.size) {
+                                        MutableList(MAP_WIDTH_Y) {
+                                            PointData(
+                                                objectData = ObjectData.NO_OBJECT,
+                                                colorData = ColorData.entries.random(),
+                                                temperature = Random.nextDouble(MIN_TEMP, MAX_TEMP)
+                                            )
+                                        }
+                                    }
+                                    currentMapState.clear()
+                                    currentMapState.addAll(emptyMap)
+                                    focusRequester.requestFocus()
+                                }
+                            ) {
+                                Text("Clear Map")
+                            }
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Button(
+                                onClick = {
+                                    val randomMap = List(currentMapState.size) {
+                                        MutableList(MAP_SIZE_Y) {
+                                            PointData(
+                                                objectData = OBJECT_POOL.random(),
+                                                colorData = ColorData.entries.random(),
+                                                temperature = Random.nextDouble(MIN_TEMP, MAX_TEMP)
+                                            )
+                                        }
+                                    }
+                                    currentMapState.clear()
+                                    currentMapState.addAll(randomMap)
+                                    focusRequester.requestFocus()
+                                }
+                            ) {
+                                Text("Random Map")
+                            }
+                        }
+                    }
+                }
         }
     }
 }

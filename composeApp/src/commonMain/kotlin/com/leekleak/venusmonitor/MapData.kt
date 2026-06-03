@@ -5,8 +5,8 @@ import kotlin.random.Random
 const val MIN_TEMP = 10.0
 const val MAX_TEMP = 30.0
 
-const val MAP_SIZE_X = 100
-const val MAP_SIZE_Y = 100
+const val MAP_SIZE_X = 200
+const val MAP_SIZE_Y = 200
 
 data class PointData(
     var objectData: ObjectData,
@@ -36,7 +36,8 @@ val OBJECT_POOL: List<ObjectData> = OBJECT_WEIGHTS.flatMap { (obj, weight) ->
 var MAP_MATRIX: List<List<PointData>> = List(MAP_SIZE_X) {
     List(MAP_SIZE_Y) {
         PointData(
-            objectData = OBJECT_POOL.random(),
+            objectData = ObjectData.NO_OBJECT,
+            //objectData = OBJECT_POOL.random(),
             colorData = ColorData.entries.random(),
             temperature = Random.nextDouble(MIN_TEMP, MAX_TEMP)
         )
