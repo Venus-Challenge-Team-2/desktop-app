@@ -29,7 +29,7 @@ private val OBJECT_WEIGHTS = listOf(
     ObjectData.HOLE to 1
 )
 
-private val OBJECT_POOL: List<ObjectData> = OBJECT_WEIGHTS.flatMap { (obj, weight) ->
+val OBJECT_POOL: List<ObjectData> = OBJECT_WEIGHTS.flatMap { (obj, weight) ->
     List(weight) { obj }
 }
 

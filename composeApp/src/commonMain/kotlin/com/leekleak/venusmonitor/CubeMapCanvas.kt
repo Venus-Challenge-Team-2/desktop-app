@@ -43,6 +43,7 @@ sealed class RenderOp(val depth: Float) {
 
 @Composable
 fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
+    // Map as it is (current)
     val currentMapState = remember {
         mutableStateListOf<MutableList<PointData>>().apply {
             MAP_MATRIX.forEach { row -> add(row.toMutableList()) }
@@ -108,7 +109,9 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                             if (event.type == PointerEventType.Scroll) {
                                 val delta = event.changes.first().scrollDelta.y
                                 zoomScale = (zoomScale - delta * 0.1f).coerceIn(minZoom, maxZoom)
-                            } else if (event.type == PointerEventType.Press) {
+                            }
+                            // click inside sim to focus and be able to move and zoom
+                            else if (event.type == PointerEventType.Press) {
                                 focusRequester.requestFocus()
                             }
                         }
@@ -152,9 +155,13 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                     val y = (gridY - MAP_WIDTH_Y / 2f) * SQUARE_SIZE
 
                     renderObject(
-                        x = x, y = y, point = point,
-                        camX = camX, camY = camY,
-                        angleX = angleX, angleY = angleY,
+                        x = x,
+                        y = y,
+                        point = point,
+                        camX = camX,
+                        camY = camY,
+                        angleX = angleX,
+                        angleY = angleY,
                         showTemperature = showTemperature,
                         project = ::project,
                         renderList = renderList
@@ -230,6 +237,26 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                             }
                         ) {
                             Text("Clear Map")
+                        }
+                    }
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically){
+                        Button(
+                            onClick = {
+                                val randomMap = List(currentMapState.size) {
+                                    MutableList(MAP_SIZE_Y) {
+                                        PointData(
+                                            objectData = OBJECT_POOL.random(),
+                                            colorData = ColorData.entries.random(),
+                                            temperature = Random.nextDouble(MIN_TEMP, MAX_TEMP)
+                                        )
+                                    }
+                                }
+                                currentMapState.clear()
+                                currentMapState.addAll(randomMap)
+                                focusRequester.requestFocus()
+                            }
+                        ) {
+                            Text("Random Map")
                         }
                     }
                 }
