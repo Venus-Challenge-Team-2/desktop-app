@@ -27,6 +27,7 @@ import androidx.compose.ui.input.key.*
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.random.Random
@@ -72,6 +73,11 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
 
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
+    }
+
+    LaunchedEffect(Unit) {
+        currentMapState.addAll(currentMapState)
+        delay(100)
     }
 
     Box(modifier = modifier) {
