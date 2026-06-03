@@ -44,8 +44,8 @@ class HelperMQTT {
                             val x = (message[3] * 100 + message[4] * 10 + message[5])
                             val y = (message[6] * 100 + message[7] * 10 + message[8])
 
-                            matrix[x][y].objectData = ObjectData.entries[height]
-                            matrix[x][y].colorData = ColorData.entries[color]
+                            MAP_MATRIX[x][y].objectData = ObjectData.entries[height]
+                            MAP_MATRIX[x][y].colorData = ColorData.entries[color]
                         } catch (e: Exception) {
                             println(e.message)
                         }
@@ -56,17 +56,21 @@ class HelperMQTT {
             }
         }
 
-        client.connect(true).onSuccess { connack ->
-            if (connack.isSuccess) {
-                client.subscribe(buildFilterList { +"/pynqbridge/$number/send" })
+        scope.launch {
+            client.connect(true).onSuccess { connack ->
+                if (connack.isSuccess) {
+                    client.subscribe(buildFilterList { +"/pynqbridge/$number/send" })
+                } else {
+                    trySend("Connection Rejected")
+                }
+            }.onFailure { exception ->
+                trySend("Connection Failed")
             }
-        }.onFailure {
-            throw it
         }
 
         awaitClose {
             collectJob.cancel()
-            scope.launch { 
+            scope.launch {
                 try {
                     client.disconnect()
                 } catch (e: Exception) {
