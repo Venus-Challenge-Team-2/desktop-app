@@ -130,8 +130,8 @@ private fun RobotTab(
         )
         Button(onClick = {
             scope.launch {
-                val x = textFieldStateX.text.toString().toInt()
-                val y = textFieldStateY.text.toString().toInt()
+                val x = try { textFieldStateX.text.toString().toInt() } catch (_: Exception) {0}
+                val y = try { textFieldStateY.text.toString().toInt() } catch (_: Exception) {0}
                 helperMQTT.moveToCoordinate(number, x, y)
             }
         }) {

@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.random.Random
+import kotlin.time.Duration.Companion.milliseconds
 
 const val SQUARE_SIZE: Float = 1f
 val MAP_WIDTH_X: Int = MAP_MATRIX.size

@@ -41,9 +41,23 @@ class HelperMQTT {
                             val x = (message[3] * 100 + message[4] * 10 + message[5])
                             val y = (message[6] * 100 + message[7] * 10 + message[8])
 
-                            MAP_MATRIX[x][y].objectData = ObjectData.entries[height]
+                            print("x: $x, y: $y, height: $height, color: $color\n")
                             MAP_MATRIX[x][y].colorData = ColorData.entries[color]
+                            MAP_MATRIX[x][y].objectData = ObjectData.entries[height]
                         } catch (e: Exception) {
+                            println(e.message)
+                        }
+                    } else if (line[0] == '3') {
+                        try {
+                            val message = line.map { char -> char.digitToInt().toByte() }.toByteArray()
+                            val x = (message[1] * 100 + message[2] * 10 + message[3])
+                            val y = (message[4] * 100 + message[5] * 10 + message[6])
+                            val temp = (message[7] * 100 + message[8] * 10 + message[9])
+
+                            print("x: $x, y: $y, temp: $temp")
+                            MAP_MATRIX[x][y].temperature = temp.toDouble()
+                        } catch (e: Exception) {
+                            print(line)
                             println(e.message)
                         }
                     } else {
