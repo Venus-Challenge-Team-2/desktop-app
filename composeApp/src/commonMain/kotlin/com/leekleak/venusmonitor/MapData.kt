@@ -5,8 +5,8 @@ import kotlin.random.Random
 const val MIN_TEMP = 10.0
 const val MAX_TEMP = 30.0
 
-const val MAP_SIZE_X = 200
-const val MAP_SIZE_Y = 200
+const val MAP_SIZE_X = 50
+const val MAP_SIZE_Y = 50
 
 data class PointData(
     var objectData: ObjectData,
