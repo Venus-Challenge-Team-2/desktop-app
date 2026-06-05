@@ -53,44 +53,32 @@ class RenderItemPool(initialCapacity: Int) {
         textCount = 0
     }
 
-    fun addPolygon(depth: Float, p1: Offset, p2: Offset, p3: Offset, p4: Offset, color: Color) {
+    fun addPolygon(depth: Float, px1: Float, py1: Float, px2: Float, py2: Float, px3: Float, py3: Float, px4: Float, py4: Float, color: Color) {
         if (polygonCount >= depths.size) return
         val idx = polygonCount
         depths[idx] = depth
         colors[idx] = color.toArgb()
 
         val pts = points[idx]
-        pts[0] = p1.x; pts[1] = p1.y
-        pts[2] = p2.x; pts[3] = p2.y
-        pts[4] = p3.x; pts[5] = p3.y
-        pts[6] = p4.x; pts[7] = p4.y
+        pts[0] = px1; pts[1] = py1
+        pts[2] = px2; pts[3] = py2
+        pts[4] = px3; pts[5] = py3
+        pts[6] = px4; pts[7] = py4
 
         polygonCount++
-    }
-
-    fun addText(depth: Float, text: String, x: Float, y: Float) {
-        if (textCount >= textDepths.size) return
-        val idx = textCount
-        textDepths[idx] = depth
-        texts[idx] = text
-        textPositionsX[idx] = x
-        textPositionsY[idx] = y
-        textCount++
     }
 
     fun sortPolygons() {
         if (sortedIndices.size < polygonCount) {
             sortedIndices = IntArray(polygonCount)
         }
-
         for (i in 0 until polygonCount) {
             sortedIndices[i] = i
         }
-
+        // Insertion Sort (Stable & fast for near-sorted spatial frames)
         for (i in 1 until polygonCount) {
             val keyIdx = sortedIndices[i]
             val keyDepth = depths[keyIdx]
-
             var j = i - 1
             while (j >= 0 && depths[sortedIndices[j]] < keyDepth) {
                 sortedIndices[j + 1] = sortedIndices[j]
@@ -103,20 +91,14 @@ class RenderItemPool(initialCapacity: Int) {
 
 @Composable
 fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
-    val currentMapState = remember {
-        mutableStateListOf<MutableList<PointData>>().apply {
-            MAP_MATRIX.forEach { row -> add(row.toMutableList()) }
-        }
-    }
+    var stateTrigger by remember { mutableStateOf(0) }
 
-    var showTemperature by remember { mutableStateOf(false) }
+    var showTemperatureMap by remember { mutableStateOf(false) }
     var angleX by remember { mutableStateOf(0.5f) }
     var angleY by remember { mutableStateOf(1f) }
     var camX by remember { mutableStateOf(0f) }
     var camY by remember { mutableStateOf(0f) }
     var zoomScale by remember { mutableStateOf(0.5f) }
-
-    var mapUpdateTrigger by remember { mutableStateOf(0) }
 
     val focusRequester = remember { FocusRequester() }
     val moveSpeed = 2.0f
@@ -182,8 +164,7 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                         }
                     }
             ) {
-                @Suppress("UNUSED_VARIABLE")
-                val trigger = mapUpdateTrigger
+                val frameDependency = stateTrigger
 
                 val centerX = size.width / 2f
                 val centerY = size.height / 2f
@@ -202,11 +183,11 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                 val halfMapX = MAP_WIDTH_X / 2f
                 val halfMapY = MAP_WIDTH_Y / 2f
 
-                for (gridX in 0 until currentMapState.size) {
-                    val row = currentMapState[gridX]
+                for (gridX in MAP_MATRIX.indices) {
+                    val row = MAP_MATRIX[gridX]
                     val x = (gridX - halfMapX) * SQUARE_SIZE
 
-                    for (gridY in 0 until row.size) {
+                    for (gridY in row.indices) {
                         val point = row[gridY]
                         val y = (gridY - halfMapY) * SQUARE_SIZE
 
@@ -215,13 +196,18 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                         val baseDepth = tx * sinY + ty * cosY
                         val sizeOffset = SQUARE_SIZE * 0.5f
 
-                        val f000 = projectToOffset(x - sizeOffset, y - sizeOffset, 0f, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY) ?: continue
-                        val f100 = projectToOffset(x + sizeOffset, y - sizeOffset, 0f, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY) ?: continue
-                        val f101 = projectToOffset(x + sizeOffset, y + sizeOffset, 0f, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY) ?: continue
-                        val f001 = projectToOffset(x - sizeOffset, y + sizeOffset, 0f, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY) ?: continue
+                        val p000 = projectPacked(x - sizeOffset, y - sizeOffset, 0f, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY) ?: continue
+                        val p100 = projectPacked(x + sizeOffset, y - sizeOffset, 0f, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY) ?: continue
+                        val p101 = projectPacked(x + sizeOffset, y + sizeOffset, 0f, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY) ?: continue
+                        val p001 = projectPacked(x - sizeOffset, y + sizeOffset, 0f, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY) ?: continue
+
+                        val f000x = unpackX(p000); val f000y = unpackY(p000)
+                        val f100x = unpackX(p100); val f100y = unpackY(p100)
+                        val f101x = unpackX(p101); val f101y = unpackY(p101)
+                        val f001x = unpackX(p001); val f001y = unpackY(p001)
 
                         val tileColor = if (point.objectData == ObjectData.HOLE) Color(0xFF13131A) else Color(0xFF464A51)
-                        renderPool.addPolygon(baseDepth + 100f, f000, f100, f101, f001, tileColor)
+                        renderPool.addPolygon(baseDepth + 100f, f000x, f000y, f100x, f100y, f101x, f101y, f001x, f001y, tileColor)
 
                         if (point.objectData == ObjectData.NO_OBJECT || point.objectData == ObjectData.HOLE) continue
 
@@ -232,10 +218,15 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                             else -> 0f
                         }
 
-                        val t000 = projectToOffset(x - sizeOffset, y - sizeOffset, height, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY) ?: continue
-                        val t100 = projectToOffset(x + sizeOffset, y - sizeOffset, height, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY) ?: continue
-                        val t101 = projectToOffset(x + sizeOffset, y + sizeOffset, height, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY) ?: continue
-                        val t001 = projectToOffset(x - sizeOffset, y + sizeOffset, height, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY) ?: continue
+                        val pt000 = projectPacked(x - sizeOffset, y - sizeOffset, height, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY) ?: continue
+                        val pt100 = projectPacked(x + sizeOffset, y - sizeOffset, height, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY) ?: continue
+                        val pt101 = projectPacked(x + sizeOffset, y + sizeOffset, height, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY) ?: continue
+                        val pt001 = projectPacked(x - sizeOffset, y + sizeOffset, height, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY) ?: continue
+
+                        val t000x = unpackX(pt000); val t000y = unpackY(pt000)
+                        val t100x = unpackX(pt100); val t100y = unpackY(pt100)
+                        val t101x = unpackX(pt101); val t101y = unpackY(pt101)
+                        val t001x = unpackX(pt001); val t001y = unpackY(pt001)
 
                         var baseColor = when (point.colorData) {
                             ColorData.RED -> Color(0xFFD32F2F)
@@ -246,33 +237,23 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                         }
                         if (point.objectData == ObjectData.MOUNTAIN) baseColor = Color(0xFF8D6554)
 
-                        val isFaceVisible = { p1: Offset, p2: Offset, p3: Offset ->
-                            (p2.x - p1.x) * (p3.y - p1.y) - (p2.y - p1.y) * (p3.x - p1.x) > 0
-                        }
+                        renderPool.addPolygon(baseDepth + 0.06f, t000x, t000y, t100x, t100y, t101x, t101y, t001x, t001y, baseColor)
 
-                        renderPool.addPolygon(baseDepth + 0.06f, t000, t100, t101, t001, baseColor)
-
-                        if (isFaceVisible(f001, f101, t101)) {
+                        if ((f101x - f001x) * (t001y - f001y) - (f101y - f001y) * (t001x - f001x) > 0) {
                             val frontColor = Color(baseColor.red * 0.9f, baseColor.green * 0.9f, baseColor.blue * 0.9f)
-                            renderPool.addPolygon(baseDepth + 0.05f, f001, f101, t101, t001, frontColor)
+                            renderPool.addPolygon(baseDepth + 0.05f, f001x, f001y, f101x, f101y, t101x, t101y, t001x, t001y, frontColor)
                         }
-                        if (isFaceVisible(f101, f100, t100)) {
+                        if ((f100x - f101x) * (t101y - f101y) - (f100y - f101y) * (t101x - f101x) > 0) {
                             val rightColor = Color(baseColor.red * 0.75f, baseColor.green * 0.75f, baseColor.blue * 0.75f)
-                            renderPool.addPolygon(baseDepth + 0.04f, f100, f101, t101, t100, rightColor)
+                            renderPool.addPolygon(baseDepth + 0.04f, f100x, f100y, f101x, f101y, t101x, t101y, t100x, t100y, rightColor)
                         }
-                        if (isFaceVisible(f000, f001, t001)) {
+                        if ((f001x - f000x) * (t000y - f000y) - (f001y - f000y) * (t000x - f000x) > 0) {
                             val leftColor = Color(baseColor.red * 0.65f, baseColor.green * 0.65f, baseColor.blue * 0.65f)
-                            renderPool.addPolygon(baseDepth + 0.03f, f000, f001, t001, t000, leftColor)
+                            renderPool.addPolygon(baseDepth + 0.03f, f000x, f000y, f001x, f001y, t001x, t001y, t000x, t000y, leftColor)
                         }
-                        if (isFaceVisible(f100, f000, t000)) {
+                        if ((f000x - f100x) * (t100y - f100y) - (f000y - f100y) * (t100x - f100x) > 0) {
                             val backColor = Color(baseColor.red * 0.5f, baseColor.green * 0.5f, baseColor.blue * 0.5f)
-                            renderPool.addPolygon(baseDepth - 0.05f, f000, f100, t100, t000, backColor)
-                        }
-
-                        if (showTemperature && (point.objectData == ObjectData.SMALL_CUBE || point.objectData == ObjectData.BIG_CUBE)) {
-                            projectToOffset(x, y, height + 0.3f, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY)?.let { textPos ->
-                                renderPool.addText(baseDepth + 0.5f, "${point.temperature.toInt()}°C", textPos.x, textPos.y)
-                            }
+                            renderPool.addPolygon(baseDepth - 0.05f, f100x, f100y, f000x, f000y, t000x, t000y, t100x, t100y, backColor)
                         }
                     }
                 }
@@ -296,7 +277,7 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                         drawPath(path = sharedPath, color = Color(renderPool.colors[originalIdx]))
                     }
 
-                    if (showTemperature && renderPool.textCount > 0) {
+                    if (showTemperatureMap && renderPool.textCount > 0) {
                         drawContext.canvas.nativeCanvas.apply {
                             for (i in 0 until renderPool.textCount) {
                                 val text = renderPool.texts[i]
@@ -329,7 +310,7 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text("Show Temperature", color = Color.White)
-                        Switch(checked = showTemperature, onCheckedChange = { showTemperature = it })
+                        Switch(checked = showTemperatureMap, onCheckedChange = { showTemperatureMap = it })
                     }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -338,16 +319,14 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                     ) {
                         Button(
                             onClick = {
-                                for (x in currentMapState.indices) {
-                                    for (y in currentMapState[x].indices) {
-                                        val point = currentMapState[x][y]
-
+                                for (row in MAP_MATRIX) {
+                                    for (point in row) {
                                         point.objectData = ObjectData.NO_OBJECT
                                         point.colorData = ColorData.entries.random()
                                         point.temperature = Random.nextDouble(MIN_TEMP, MAX_TEMP)
                                     }
                                 }
-                                mapUpdateTrigger++
+                                stateTrigger++
                                 focusRequester.requestFocus()
                             }
                         ) {
@@ -361,17 +340,14 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                     ) {
                         Button(
                             onClick = {
-                                for (x in 0 until currentMapState.size) {
-                                    val rowSize = currentMapState[x].size
-                                    currentMapState[x] = MutableList(rowSize) {
-                                        PointData(
-                                            objectData = OBJECT_POOL.random(),
-                                            colorData = ColorData.entries.random(),
-                                            temperature = Random.nextDouble(MIN_TEMP, MAX_TEMP)
-                                        )
+                                for (row in MAP_MATRIX) {
+                                    for (point in row) {
+                                        point.objectData = OBJECT_POOL.random()
+                                        point.colorData = ColorData.entries.random()
+                                        point.temperature = Random.nextDouble(MIN_TEMP, MAX_TEMP)
                                     }
                                 }
-                                mapUpdateTrigger++
+                                stateTrigger++
                                 focusRequester.requestFocus()
                             }
                         ) {
@@ -384,13 +360,13 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
     }
 }
 
-private fun projectToOffset(
+private fun projectPacked(
     x: Float, y: Float, z: Float,
     camX: Float, camY: Float,
     centerX: Float, centerY: Float,
     scale: Float, cameraDistance: Float, focalLength: Float,
     cosX: Float, sinX: Float, cosY: Float, sinY: Float
-): Offset? {
+): Long? {
     val tx = x - camX
     val ty = y - camY
     val x1 = tx * cosY - ty * sinY
@@ -401,5 +377,14 @@ private fun projectToOffset(
 
     if (translatedZ <= 0.5f) return null
     val perspective = focalLength / translatedZ
-    return Offset(centerX + x1 * scale * perspective, centerY - z2 * scale * perspective)
+
+    val outX = centerX + x1 * scale * perspective
+    val outY = centerY - z2 * scale * perspective
+
+    val xBits = outX.toBits().toLong() and 0xFFFFFFFFL
+    val yBits = outY.toBits().toLong() and 0xFFFFFFFFL
+    return (xBits shl 32) or yBits
 }
+
+private fun unpackX(packed: Long): Float = Float.fromBits((packed ushr 32).toInt())
+private fun unpackY(packed: Long): Float = Float.fromBits((packed and 0xFFFFFFFFL).toInt())
