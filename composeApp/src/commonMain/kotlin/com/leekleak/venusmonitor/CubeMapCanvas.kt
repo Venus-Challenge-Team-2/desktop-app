@@ -337,15 +337,13 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                     ) {
                         Button(
                             onClick = {
-                                // FIX: Dynamically read the exact row size to match asymmetrical dimensions
-                                for (x in 0 until currentMapState.size) {
-                                    val rowSize = currentMapState[x].size
-                                    currentMapState[x] = MutableList(rowSize) {
-                                        PointData(
-                                            objectData = ObjectData.NO_OBJECT,
-                                            colorData = ColorData.entries.random(),
-                                            temperature = Random.nextDouble(MIN_TEMP, MAX_TEMP)
-                                        )
+                                for (x in currentMapState.indices) {
+                                    for (y in currentMapState[x].indices) {
+                                        val point = currentMapState[x][y]
+
+                                        point.objectData = ObjectData.NO_OBJECT
+                                        point.colorData = ColorData.entries.random()
+                                        point.temperature = Random.nextDouble(MIN_TEMP, MAX_TEMP)
                                     }
                                 }
                                 mapUpdateTrigger++
@@ -362,7 +360,6 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                     ) {
                         Button(
                             onClick = {
-                                // FIX: Dynamically read the exact row size to match asymmetrical dimensions
                                 for (x in 0 until currentMapState.size) {
                                     val rowSize = currentMapState[x].size
                                     currentMapState[x] = MutableList(rowSize) {
