@@ -22,6 +22,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.unit.dp
 import kotlin.math.cos
 import kotlin.math.sin
@@ -41,7 +42,7 @@ private fun getAdjustedNeighborhoodTemperature(gridX: Int, gridY: Int, radius: I
     val maxX = (gridX + radius).coerceAtMost(MAP_WIDTH_X - 1)
     val minY = (gridY - radius).coerceAtLeast(0)
     val maxY = (gridY + radius).coerceAtMost(MAP_WIDTH_Y - 1)
-    
+
     for (nx in minX..maxX) {
         val row = MAP_MATRIX[nx]
         for (ny in minY..maxY) {
@@ -63,47 +64,20 @@ private fun getAdjustedNeighborhoodTemperature(gridX: Int, gridY: Int, radius: I
             }
         }
     }
-
     return maxInfluencedTemp.coerceIn(MIN_TEMP, MAX_TEMP)
 }
 
-private fun getBlurredTemperature(gridX: Int, gridY: Int, radius: Int = 4): Double {
-    var totalTemp = 0.0
-    var count = 0
-
-    val minX = (gridX - radius).coerceAtLeast(0)
-    val maxX = (gridX + radius).coerceAtMost(MAP_WIDTH_X - 1)
-    val minY = (gridY - radius).coerceAtLeast(0)
-    val maxY = (gridY + radius).coerceAtMost(MAP_WIDTH_Y - 1)
-
-    for (nx in minX..maxX) {
-        val row = MAP_MATRIX[nx]
-        for (ny in minY..maxY) {
-            totalTemp += row[ny].temperature
-            count++
-        }
-    }
-
-    return if (count > 0) totalTemp / count else MAP_MATRIX[gridX][gridY].temperature
-}
 class RenderItemPool(initialCapacity: Int) {
     var polygonCount = 0
-    var textCount = 0
 
     val depths = FloatArray(initialCapacity)
     val points = Array(initialCapacity) { FloatArray(8) }
     val colors = IntArray(initialCapacity)
 
-    val textDepths = FloatArray(initialCapacity / 4)
-    val texts = Array(initialCapacity / 4) { "" }
-    val textPositionsX = FloatArray(initialCapacity / 4)
-    val textPositionsY = FloatArray(initialCapacity / 4)
-
     var sortedIndices = IntArray(initialCapacity) { it }
 
     fun reset() {
         polygonCount = 0
-        textCount = 0
     }
 
     fun addPolygon(depth: Float, px1: Float, py1: Float, px2: Float, py2: Float, px3: Float, py3: Float, px4: Float, py4: Float, color: Color) {
@@ -159,13 +133,14 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
     val maxZoom = 4.0f
 
     val sharedPath = remember { Path() }
-    val textPaint = remember {
-        androidx.compose.ui.graphics.Paint().asFrameworkPaint().apply {
-            color = org.jetbrains.skia.Color.WHITE
-        }
-    }
 
     val renderPool = remember { RenderItemPool(MAP_WIDTH_X * MAP_WIDTH_Y * 6) }
+
+    val textMeasurer = androidx.compose.ui.text.rememberTextMeasurer()
+    val baseTextStyle = androidx.compose.ui.text.TextStyle(
+        color = Color.White,
+        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+    )
 
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
@@ -225,6 +200,10 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                 val currentTextSize = 12f * zoomScale
                 val cameraDistance = MAX_DIMENSION * 1.0f
                 val focalLength = MAX_DIMENSION * 0.8f
+
+                val scaledTextStyle = baseTextStyle.copy(
+                    fontSize = (12f * zoomScale).toSp()
+                )
 
                 val cosY = cos(angleY)
                 val sinY = sin(angleY)
@@ -286,23 +265,6 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                             tileColor
                         )
 
-                        if (showTemperatureMap) {
-                            val textIndex = renderPool.textCount
-                            if (textIndex < renderPool.textDepths.size) {
-                                renderPool.textDepths[textIndex] = baseDepth
-
-                                val tempInt = (point.temperature * 10).toInt()
-                                val whole = tempInt / 10
-                                val fraction = kotlin.math.abs(tempInt % 10)
-
-                                renderPool.texts[textIndex] = "$whole.$fraction°"
-
-                                renderPool.textPositionsX[textIndex] = (f000x + f100x + f101x + f001x) / 4f
-                                renderPool.textPositionsY[textIndex] = (f000y + f100y + f101y + f001y) / 4f
-                                renderPool.textCount++
-                            }
-                        }
-
                         if (!showTemperatureMap && point.objectData != ObjectData.NO_OBJECT && point.objectData != ObjectData.HOLE) {
                             val height = when (point.objectData) {
                                 ObjectData.SMALL_CUBE -> SQUARE_SIZE
@@ -355,8 +317,6 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                 renderPool.sortPolygons()
 
                 clipRect {
-                    val font = org.jetbrains.skia.Font(null, currentTextSize)
-
                     for (i in 0 until renderPool.polygonCount) {
                         val originalIdx = renderPool.sortedIndices[i]
                         val pts = renderPool.points[originalIdx]
@@ -371,21 +331,59 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                         drawPath(path = sharedPath, color = Color(renderPool.colors[originalIdx]))
                     }
 
-                    if (showTemperatureMap && renderPool.textCount > 0) {
-                        drawContext.canvas.nativeCanvas.apply {
-                            for (i in 0 until renderPool.textCount) {
-                                val text = renderPool.texts[i]
-                                val textWidth = font.measureTextWidth(text, textPaint)
+                    val originPacked = projectPacked(
+                        0f, 0f, 4.8f,
+                        camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY
+                    )
+                    val lineBottomPacked = projectPacked(
+                        0f, 0f, 0f, // Starting point on the floor grid
+                        camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY
+                    )
+                    val lineTopPacked = projectPacked(
+                        0f, 0f, SQUARE_SIZE * 3f, // Extends upward by 3 units on the Z axis
+                        camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY
+                    )
+                    if (lineBottomPacked != null && lineTopPacked != null && originPacked != null) {
+                        drawText(
+                            textMeasurer = textMeasurer,
+                            text = "(0,0)",
+                            topLeft = Offset(unpackX(originPacked), unpackY(originPacked)),
+                            style = scaledTextStyle
+                        )
+                        drawLine(
+                            color = Color.Red,
+                            start = Offset(unpackX(lineBottomPacked), unpackY(lineBottomPacked)),
+                            end = Offset(unpackX(lineTopPacked), unpackY(lineTopPacked)),
+                            strokeWidth = 3f * zoomScale
+                        )
+                    }
 
-                                drawString(
-                                    text,
-                                    renderPool.textPositionsX[i] - (textWidth / 2f),
-                                    renderPool.textPositionsY[i],
-                                    font,
-                                    textPaint
-                                )
-                            }
-                        }
+                    val xAxisPacked = projectPacked(
+                        (MAP_WIDTH_X / 2f) * SQUARE_SIZE + 7, 0f, 0.1f,
+                        camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY
+                    )
+                    if (xAxisPacked != null) {
+                        drawText(
+                            textMeasurer = textMeasurer,
+                            text = "Pos X",
+                            topLeft = Offset(unpackX(xAxisPacked), unpackY(xAxisPacked)),
+                            style = scaledTextStyle
+                        )
+                    }
+
+                    // --- Draw Y-Axis Label ---
+                    val yAxisPacked = projectPacked(
+                        0f, (MAP_WIDTH_Y / 2f) * SQUARE_SIZE + 7, 0.1f,
+                        camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY
+                    )
+
+                    if (yAxisPacked != null) {
+                        drawText(
+                            textMeasurer = textMeasurer,
+                            text = "Pos Y",
+                            topLeft = Offset(unpackX(yAxisPacked), unpackY(yAxisPacked)),
+                            style = scaledTextStyle
+                        )
                     }
                 }
             }

@@ -63,23 +63,30 @@ fun App() {
                         .horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Box(
+                    Column(
                         modifier = Modifier
-                            .weight(1.0f) // Takes up 40% of the horizontal screen width
                             .fillMaxHeight()
+                            .padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        RobotTab(37, "CpE43hdC")
+                        Box(
+                            modifier = Modifier
+                                .weight(1.0f)
+                                .fillMaxHeight()
+                        ) {
+                            RobotTab(37, "CpE43hdC")
+                        }
+                        Box(
+                            modifier = Modifier
+                                .weight(1.0f)
+                                .fillMaxHeight()
+                        ) {
+                            RobotTab(87, "s5Bpx5Yo")
+                        }
                     }
                     Box(
                         modifier = Modifier
-                            .weight(1.0f) // Takes up 40% of the horizontal screen width
-                            .fillMaxHeight()
-                    ) {
-                        RobotTab(87, "s5Bpx5Yo")
-                    }
-                    Box(
-                        modifier = Modifier
-                            .weight(1.5f) // Takes up 60% of the horizontal screen width
+                            .width(600.dp)
                             .fillMaxHeight()
                     ) {
                         CubeMapCanvas()

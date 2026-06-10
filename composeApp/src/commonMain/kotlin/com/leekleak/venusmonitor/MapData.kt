@@ -1,5 +1,7 @@
 package com.leekleak.venusmonitor
 
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import kotlin.random.Random
 
 const val MIN_TEMP = 10.0
@@ -32,7 +34,20 @@ private val OBJECT_WEIGHTS = listOf(
 val OBJECT_POOL: List<ObjectData> = OBJECT_WEIGHTS.flatMap { (obj, weight) ->
     List(weight) { obj }
 }
-
+//*
+val MAP_MATRIX: SnapshotStateList<List<PointData>> = mutableStateListOf<List<PointData>>().apply {
+    repeat(MAP_SIZE_X) {
+        add(List(MAP_SIZE_Y) {
+            PointData(
+                objectData = ObjectData.NO_OBJECT,
+                colorData = ColorData.entries.random(),
+                temperature = MIN_TEMP
+            )
+        })
+    }
+}
+//*/
+/*
 var MAP_MATRIX: List<List<PointData>> = List(MAP_SIZE_X) {
     List(MAP_SIZE_Y) {
         PointData(
@@ -44,3 +59,4 @@ var MAP_MATRIX: List<List<PointData>> = List(MAP_SIZE_X) {
     }
 }
 
+//*/
