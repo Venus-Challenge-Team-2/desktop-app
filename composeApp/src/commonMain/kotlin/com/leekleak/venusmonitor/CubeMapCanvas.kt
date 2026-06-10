@@ -33,6 +33,59 @@ val MAP_WIDTH_X: Int = MAP_MATRIX.size
 val MAP_WIDTH_Y: Int = MAP_MATRIX.firstOrNull()?.size ?: 0
 val MAX_DIMENSION: Float = maxOf(MAP_WIDTH_X, MAP_WIDTH_Y).toFloat()
 
+private fun getAdjustedNeighborhoodTemperature(gridX: Int, gridY: Int, radius: Int = 4): Double {
+    val currentTileTemp = MAP_MATRIX[gridX][gridY].temperature
+    var maxInfluencedTemp = currentTileTemp
+
+    val minX = (gridX - radius).coerceAtLeast(0)
+    val maxX = (gridX + radius).coerceAtMost(MAP_WIDTH_X - 1)
+    val minY = (gridY - radius).coerceAtLeast(0)
+    val maxY = (gridY + radius).coerceAtMost(MAP_WIDTH_Y - 1)
+    
+    for (nx in minX..maxX) {
+        val row = MAP_MATRIX[nx]
+        for (ny in minY..maxY) {
+            val neighborTemp = row[ny].temperature
+
+            if (neighborTemp > MIN_TEMP) {
+                val dx = nx - gridX
+                val dy = ny - gridY
+                val distance = kotlin.math.sqrt((dx * dx + dy * dy).toFloat())
+
+                if (distance <= radius) {
+                    val falloff = 1.0 - (distance / radius)
+                    val leakedHeat = neighborTemp * falloff
+
+                    if (leakedHeat > maxInfluencedTemp) {
+                        maxInfluencedTemp = leakedHeat
+                    }
+                }
+            }
+        }
+    }
+
+    return maxInfluencedTemp.coerceIn(MIN_TEMP, MAX_TEMP)
+}
+
+private fun getBlurredTemperature(gridX: Int, gridY: Int, radius: Int = 4): Double {
+    var totalTemp = 0.0
+    var count = 0
+
+    val minX = (gridX - radius).coerceAtLeast(0)
+    val maxX = (gridX + radius).coerceAtMost(MAP_WIDTH_X - 1)
+    val minY = (gridY - radius).coerceAtLeast(0)
+    val maxY = (gridY + radius).coerceAtMost(MAP_WIDTH_Y - 1)
+
+    for (nx in minX..maxX) {
+        val row = MAP_MATRIX[nx]
+        for (ny in minY..maxY) {
+            totalTemp += row[ny].temperature
+            count++
+        }
+    }
+
+    return if (count > 0) totalTemp / count else MAP_MATRIX[gridX][gridY].temperature
+}
 class RenderItemPool(initialCapacity: Int) {
     var polygonCount = 0
     var textCount = 0
@@ -206,54 +259,95 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                         val f101x = unpackX(p101); val f101y = unpackY(p101)
                         val f001x = unpackX(p001); val f001y = unpackY(p001)
 
-                        val tileColor = if (point.objectData == ObjectData.HOLE) Color(0xFF13131A) else Color(0xFF464A51)
-                        renderPool.addPolygon(baseDepth + 100f, f000x, f000y, f100x, f100y, f101x, f101y, f001x, f001y, tileColor)
+                        val tileColor = if (showTemperatureMap) {
+                            val adjustedTemp = getAdjustedNeighborhoodTemperature(gridX, gridY, radius = 10)
 
-                        if (point.objectData == ObjectData.NO_OBJECT || point.objectData == ObjectData.HOLE) continue
+                            val range = (MAX_TEMP - MIN_TEMP).toFloat()
+                            val fraction = if (range > 0f) {
+                                ((adjustedTemp - MIN_TEMP).toFloat() / range).coerceIn(0f, 1f)
+                            } else 0.5f
 
-                        val height = when (point.objectData) {
-                            ObjectData.SMALL_CUBE -> SQUARE_SIZE
-                            ObjectData.BIG_CUBE -> SQUARE_SIZE * 2f
-                            ObjectData.MOUNTAIN -> SQUARE_SIZE * 10f
-                            else -> 0f
+                            Color(
+                                red = fraction,
+                                green = 0f,
+                                blue = 1f - fraction,
+                                alpha = 1f
+                            )
+                        } else {
+                            if (point.objectData == ObjectData.HOLE) Color(0xFF13131A) else Color(0xFF464A51)
                         }
 
-                        val pt000 = projectPacked(x - sizeOffset, y - sizeOffset, height, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY) ?: continue
-                        val pt100 = projectPacked(x + sizeOffset, y - sizeOffset, height, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY) ?: continue
-                        val pt101 = projectPacked(x + sizeOffset, y + sizeOffset, height, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY) ?: continue
-                        val pt001 = projectPacked(x - sizeOffset, y + sizeOffset, height, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY) ?: continue
+                        renderPool.addPolygon(
+                            baseDepth + 100f,
+                            f000x, f000y,
+                            f100x, f100y,
+                            f101x, f101y,
+                            f001x, f001y,
+                            tileColor
+                        )
 
-                        val t000x = unpackX(pt000); val t000y = unpackY(pt000)
-                        val t100x = unpackX(pt100); val t100y = unpackY(pt100)
-                        val t101x = unpackX(pt101); val t101y = unpackY(pt101)
-                        val t001x = unpackX(pt001); val t001y = unpackY(pt001)
+                        if (showTemperatureMap) {
+                            val textIndex = renderPool.textCount
+                            if (textIndex < renderPool.textDepths.size) {
+                                renderPool.textDepths[textIndex] = baseDepth
 
-                        var baseColor = when (point.colorData) {
-                            ColorData.RED -> Color(0xFFD32F2F)
-                            ColorData.BLACK -> Color(0xFF212121)
-                            ColorData.BLUE -> Color(0xFF1976D2)
-                            ColorData.GREEN -> Color(0xFF388E3C)
-                            ColorData.WHITE -> Color(0xFFFFFFFF)
-                        }
-                        if (point.objectData == ObjectData.MOUNTAIN) baseColor = Color(0xFF8D6554)
+                                val tempInt = (point.temperature * 10).toInt()
+                                val whole = tempInt / 10
+                                val fraction = kotlin.math.abs(tempInt % 10)
 
-                        renderPool.addPolygon(baseDepth + 0.06f, t000x, t000y, t100x, t100y, t101x, t101y, t001x, t001y, baseColor)
+                                renderPool.texts[textIndex] = "$whole.$fraction°"
 
-                        if ((f101x - f001x) * (t001y - f001y) - (f101y - f001y) * (t001x - f001x) > 0) {
-                            val frontColor = Color(baseColor.red * 0.9f, baseColor.green * 0.9f, baseColor.blue * 0.9f)
-                            renderPool.addPolygon(baseDepth + 0.05f, f001x, f001y, f101x, f101y, t101x, t101y, t001x, t001y, frontColor)
+                                renderPool.textPositionsX[textIndex] = (f000x + f100x + f101x + f001x) / 4f
+                                renderPool.textPositionsY[textIndex] = (f000y + f100y + f101y + f001y) / 4f
+                                renderPool.textCount++
+                            }
                         }
-                        if ((f100x - f101x) * (t101y - f101y) - (f100y - f101y) * (t101x - f101x) > 0) {
-                            val rightColor = Color(baseColor.red * 0.75f, baseColor.green * 0.75f, baseColor.blue * 0.75f)
-                            renderPool.addPolygon(baseDepth + 0.04f, f100x, f100y, f101x, f101y, t101x, t101y, t100x, t100y, rightColor)
-                        }
-                        if ((f001x - f000x) * (t000y - f000y) - (f001y - f000y) * (t000x - f000x) > 0) {
-                            val leftColor = Color(baseColor.red * 0.65f, baseColor.green * 0.65f, baseColor.blue * 0.65f)
-                            renderPool.addPolygon(baseDepth + 0.03f, f000x, f000y, f001x, f001y, t001x, t001y, t000x, t000y, leftColor)
-                        }
-                        if ((f000x - f100x) * (t100y - f100y) - (f000y - f100y) * (t100x - f100x) > 0) {
-                            val backColor = Color(baseColor.red * 0.5f, baseColor.green * 0.5f, baseColor.blue * 0.5f)
-                            renderPool.addPolygon(baseDepth - 0.05f, f100x, f100y, f000x, f000y, t000x, t000y, t100x, t100y, backColor)
+
+                        if (!showTemperatureMap && point.objectData != ObjectData.NO_OBJECT && point.objectData != ObjectData.HOLE) {
+                            val height = when (point.objectData) {
+                                ObjectData.SMALL_CUBE -> SQUARE_SIZE
+                                ObjectData.BIG_CUBE -> SQUARE_SIZE * 2f
+                                ObjectData.MOUNTAIN -> SQUARE_SIZE * 10f
+                                else -> 0f
+                            }
+
+                            val pt000 = projectPacked(x - sizeOffset, y - sizeOffset, height, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY) ?: continue
+                            val pt100 = projectPacked(x + sizeOffset, y - sizeOffset, height, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY) ?: continue
+                            val pt101 = projectPacked(x + sizeOffset, y + sizeOffset, height, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY) ?: continue
+                            val pt001 = projectPacked(x - sizeOffset, y + sizeOffset, height, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY) ?: continue
+
+                            val t000x = unpackX(pt000); val t000y = unpackY(pt000)
+                            val t100x = unpackX(pt100); val t100y = unpackY(pt100)
+                            val t101x = unpackX(pt101); val t101y = unpackY(pt101)
+                            val t001x = unpackX(pt001); val t001y = unpackY(pt001)
+
+                            var baseColor = when (point.colorData) {
+                                ColorData.RED -> Color(0xFFD32F2F)
+                                ColorData.BLACK -> Color(0xFF212121)
+                                ColorData.BLUE -> Color(0xFF1976D2)
+                                ColorData.GREEN -> Color(0xFF388E3C)
+                                ColorData.WHITE -> Color(0xFFFFFFFF)
+                            }
+                            if (point.objectData == ObjectData.MOUNTAIN) baseColor = Color(0xFF8D6554)
+
+                            renderPool.addPolygon(baseDepth + 0.06f, t000x, t000y, t100x, t100y, t101x, t101y, t001x, t001y, baseColor)
+
+                            if ((f101x - f001x) * (t001y - f001y) - (f101y - f001y) * (t001x - f001x) > 0) {
+                                val frontColor = Color(baseColor.red * 0.9f, baseColor.green * 0.9f, baseColor.blue * 0.9f)
+                                renderPool.addPolygon(baseDepth + 0.05f, f001x, f001y, f101x, f101y, t101x, t101y, t001x, t001y, frontColor)
+                            }
+                            if ((f100x - f101x) * (t101y - f101y) - (f100y - f101y) * (t101x - f101x) > 0) {
+                                val rightColor = Color(baseColor.red * 0.75f, baseColor.green * 0.75f, baseColor.blue * 0.75f)
+                                renderPool.addPolygon(baseDepth + 0.04f, f100x, f100y, f101x, f101y, t101x, t101y, t100x, t100y, rightColor)
+                            }
+                            if ((f001x - f000x) * (t000y - f000y) - (f001y - f000y) * (t000x - f000x) > 0) {
+                                val leftColor = Color(baseColor.red * 0.65f, baseColor.green * 0.65f, baseColor.blue * 0.65f)
+                                renderPool.addPolygon(baseDepth + 0.03f, f000x, f000y, f001x, f001y, t001x, t001y, t000x, t000y, leftColor)
+                            }
+                            if ((f000x - f100x) * (t100y - f100y) - (f000y - f100y) * (t100x - f100x) > 0) {
+                                val backColor = Color(baseColor.red * 0.5f, baseColor.green * 0.5f, baseColor.blue * 0.5f)
+                                renderPool.addPolygon(baseDepth - 0.05f, f100x, f100y, f000x, f000y, t000x, t000y, t100x, t100y, backColor)
+                            }
                         }
                     }
                 }
@@ -323,7 +417,7 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                                     for (point in row) {
                                         point.objectData = ObjectData.NO_OBJECT
                                         point.colorData = ColorData.entries.random()
-                                        point.temperature = Random.nextDouble(MIN_TEMP, MAX_TEMP)
+                                        point.temperature = MIN_TEMP
                                     }
                                 }
                                 stateTrigger++

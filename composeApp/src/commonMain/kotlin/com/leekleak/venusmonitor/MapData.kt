@@ -39,7 +39,7 @@ var MAP_MATRIX: List<List<PointData>> = List(MAP_SIZE_X) {
             objectData = ObjectData.NO_OBJECT,
             //objectData = OBJECT_POOL.random(),
             colorData = ColorData.entries.random(),
-            temperature = Random.nextDouble(MIN_TEMP, MAX_TEMP)
+            temperature = MIN_TEMP
         )
     }
 }
