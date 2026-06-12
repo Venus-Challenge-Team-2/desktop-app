@@ -24,6 +24,7 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.random.Random
@@ -34,12 +35,12 @@ val MAP_WIDTH_X: Int = MAP_MATRIX.size
 val MAP_WIDTH_Y: Int = MAP_MATRIX.firstOrNull()?.size ?: 0
 val MAX_DIMENSION: Float = maxOf(MAP_WIDTH_X, MAP_WIDTH_Y).toFloat()
 
-var currentX37: Float = 20f;
-var currentY37: Float = 20f;
-var currentX87: Float = 40f;
-var currentY87: Float = 40f;
+var currentX37: Int = 20;
+var currentY37: Int = 20;
+var currentX87: Int = 40;
+var currentY87: Int = 40;
 
-private fun getAdjustedNeighborhoodTemperature(gridX: Int, gridY: Int, radius: Int = 6): Double {
+private fun getAdjustedNeighborhoodTemperature(gridX: Int, gridY: Int, radius: Int = 10): Double {
     val currentTileTemp = MAP_MATRIX[gridX][gridY].temperature
     var maxInfluencedTemp = currentTileTemp
 
@@ -148,6 +149,14 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
         focusRequester.requestFocus()
     }
 
+    LaunchedEffect(Unit) {
+        while(true){
+            stateTrigger++
+            delay(100.milliseconds)
+        }
+
+    }
+
     Column(Modifier.fillMaxHeight()) {
         Box(modifier = modifier.weight(1f)) {
             Canvas(
@@ -194,6 +203,8 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                         }
                     }
             ) {
+                val tmr = stateTrigger
+
                 val centerX = size.width / 2f
                 val centerY = size.height / 2f
                 val scale = (minOf(size.width, size.height) / (MAX_DIMENSION * 0.4f)) * zoomScale
@@ -213,6 +224,7 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
 
                 val halfMapX = MAP_WIDTH_X / 2f
                 val halfMapY = MAP_WIDTH_Y / 2f
+                val axisOffset = 6f
 
                 for (gridX in MAP_MATRIX.indices) {
                     val row = MAP_MATRIX[gridX]
@@ -329,8 +341,8 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                     val lineBottomPacked = projectPacked(0f, 0f, 0f, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY)
                     val lineTopPacked = projectPacked(0f, 0f, SQUARE_SIZE * 3f, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY)
 
-                    val robot37Packed = projectPacked(currentX37-50, currentY37-50, SQUARE_SIZE * 3f, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY)
-                    val robot87Packed = projectPacked(currentX87-50, currentY87-50, SQUARE_SIZE * 3f, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY)
+                    val robot37Packed = projectPacked(currentX37*1f-50, currentY37*1f-50, 2f, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY)
+                    val robot87Packed = projectPacked(currentX87*1f-50, currentY87*1f-50, 2f, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY)
 
                     if (lineBottomPacked != null && lineTopPacked != null && originPacked != null) {
                         drawText(
@@ -347,10 +359,7 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                         )
                     }
 
-                    val xAxisPacked = projectPacked(
-                        (MAP_WIDTH_X / 2f) * SQUARE_SIZE + 6, 0f, 0.1f,
-                        camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY
-                    )
+                    val xAxisPacked = projectPacked((MAP_WIDTH_X / 2f) * SQUARE_SIZE + axisOffset, 0f, 1.2f, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY)
                     if (xAxisPacked != null) {
                         drawText(
                             textMeasurer = textMeasurer,
@@ -360,10 +369,7 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                         )
                     }
 
-                    val yAxisPacked = projectPacked(
-                        0f, (MAP_WIDTH_Y / 2f) * SQUARE_SIZE + 6, 0.1f,
-                        camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY
-                    )
+                    val yAxisPacked = projectPacked(0f, (MAP_WIDTH_Y / 2f) * SQUARE_SIZE + axisOffset, 1.2f, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY)
 
                     if (yAxisPacked != null) {
                         drawText(
@@ -377,11 +383,11 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                         drawText(
                             textMeasurer = textMeasurer,
                             text = "Robot 37",
-                            topLeft = Offset(unpackX(robot37Packed), unpackY(robot37Packed)),
+                            topLeft = Offset(unpackX(robot37Packed), unpackY(robot37Packed)-10f),
                             style = scaledTextStyle
                         )
                         drawCircle(
-                            color = Color.Blue,
+                            color = Color.Yellow,
                             radius = 4f*zoomScale,
                             center = Offset(unpackX(robot37Packed), unpackY(robot37Packed)),
                         )
@@ -390,11 +396,11 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                         drawText(
                             textMeasurer = textMeasurer,
                             text = "Robot 87",
-                            topLeft = Offset(unpackX(robot87Packed), unpackY(robot87Packed)),
+                            topLeft = Offset(unpackX(robot87Packed), unpackY(robot87Packed)-10f),
                             style = scaledTextStyle
                         )
                         drawCircle(
-                            color = Color.Red,
+                            color = Color.Green,
                             radius = 4f*zoomScale,
                             center = Offset(unpackX(robot87Packed), unpackY(robot87Packed)),
                         )
