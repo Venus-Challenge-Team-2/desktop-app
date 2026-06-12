@@ -34,6 +34,11 @@ val MAP_WIDTH_X: Int = MAP_MATRIX.size
 val MAP_WIDTH_Y: Int = MAP_MATRIX.firstOrNull()?.size ?: 0
 val MAX_DIMENSION: Float = maxOf(MAP_WIDTH_X, MAP_WIDTH_Y).toFloat()
 
+public var currentX37: Int = 0;
+public var currentY37: Int = 0;
+public var currentX87: Int = 0;
+public var currentY87: Int = 0;
+
 private fun getAdjustedNeighborhoodTemperature(gridX: Int, gridY: Int, radius: Int = 4): Double {
     val currentTileTemp = MAP_MATRIX[gridX][gridY].temperature
     var maxInfluencedTemp = currentTileTemp
@@ -69,11 +74,9 @@ private fun getAdjustedNeighborhoodTemperature(gridX: Int, gridY: Int, radius: I
 
 class RenderItemPool(initialCapacity: Int) {
     var polygonCount = 0
-
     val depths = FloatArray(initialCapacity)
     val points = Array(initialCapacity) { FloatArray(8) }
     val colors = IntArray(initialCapacity)
-
     var sortedIndices = IntArray(initialCapacity) { it }
 
     fun reset() {
@@ -133,7 +136,6 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
     val maxZoom = 4.0f
 
     val sharedPath = remember { Path() }
-
     val renderPool = remember { RenderItemPool(MAP_WIDTH_X * MAP_WIDTH_Y * 6) }
 
     val textMeasurer = androidx.compose.ui.text.rememberTextMeasurer()
@@ -165,8 +167,8 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                                 Key.S -> { camX -= forwardX; camY -= forwardY; true }
                                 Key.A -> { camX -= rightX; camY -= rightY; true }
                                 Key.D -> { camX += rightX; camY += rightY; true }
-                                Key.DirectionUp -> { zoomScale = (zoomScale - 0.05f).coerceIn(minZoom, maxZoom); true }
-                                Key.DirectionDown -> { zoomScale = (zoomScale + 0.05f).coerceIn(minZoom, maxZoom); true }
+                                Key.DirectionUp -> { zoomScale = (zoomScale + 0.05f).coerceIn(minZoom, maxZoom); true }
+                                Key.DirectionDown -> { zoomScale = (zoomScale - 0.05f).coerceIn(minZoom, maxZoom); true }
                                 else -> false
                             }
                         } else false
@@ -192,12 +194,9 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                         }
                     }
             ) {
-                val frameDependency = stateTrigger
-
                 val centerX = size.width / 2f
                 val centerY = size.height / 2f
                 val scale = (minOf(size.width, size.height) / (MAX_DIMENSION * 0.4f)) * zoomScale
-                val currentTextSize = 12f * zoomScale
                 val cameraDistance = MAX_DIMENSION * 1.0f
                 val focalLength = MAX_DIMENSION * 0.8f
 
@@ -246,12 +245,7 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                                 ((adjustedTemp - MIN_TEMP).toFloat() / range).coerceIn(0f, 1f)
                             } else 0.5f
 
-                            Color(
-                                red = fraction,
-                                green = 0f,
-                                blue = 1f - fraction,
-                                alpha = 1f
-                            )
+                            Color(red = fraction, green = 0f, blue = 1f - fraction, alpha = 1f)
                         } else {
                             if (point.objectData == ObjectData.HOLE) Color(0xFF13131A) else Color(0xFF464A51)
                         }
@@ -336,11 +330,11 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                         camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY
                     )
                     val lineBottomPacked = projectPacked(
-                        0f, 0f, 0f, // Starting point on the floor grid
+                        0f, 0f, 0f,
                         camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY
                     )
                     val lineTopPacked = projectPacked(
-                        0f, 0f, SQUARE_SIZE * 3f, // Extends upward by 3 units on the Z axis
+                        0f, 0f, SQUARE_SIZE * 3f,
                         camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY
                     )
                     if (lineBottomPacked != null && lineTopPacked != null && originPacked != null) {
@@ -351,7 +345,7 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                             style = scaledTextStyle
                         )
                         drawLine(
-                            color = Color.Red,
+                            color = Color.Cyan,
                             start = Offset(unpackX(lineBottomPacked), unpackY(lineBottomPacked)),
                             end = Offset(unpackX(lineTopPacked), unpackY(lineTopPacked)),
                             strokeWidth = 3f * zoomScale
@@ -359,7 +353,7 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                     }
 
                     val xAxisPacked = projectPacked(
-                        (MAP_WIDTH_X / 2f) * SQUARE_SIZE + 7, 0f, 0.1f,
+                        (MAP_WIDTH_X / 2f) * SQUARE_SIZE + 6, 0f, 0.1f,
                         camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY
                     )
                     if (xAxisPacked != null) {
@@ -371,9 +365,8 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                         )
                     }
 
-                    // --- Draw Y-Axis Label ---
                     val yAxisPacked = projectPacked(
-                        0f, (MAP_WIDTH_Y / 2f) * SQUARE_SIZE + 7, 0.1f,
+                        0f, (MAP_WIDTH_Y / 2f) * SQUARE_SIZE + 6, 0.1f,
                         camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY
                     )
 

@@ -53,7 +53,14 @@ class HelperMQTT {
                             val x = (message[1] * 100 + message[2] * 10 + message[3])
                             val y = (message[4] * 100 + message[5] * 10 + message[6])
                             val temp = (message[7] * 100 + message[8] * 10 + message[9])
-
+                            if(number == 37) {
+                                currentX37 = x;
+                                currentY37 = y;
+                            }
+                            else if(number == 87) {
+                                currentX87 = x;
+                                currentY87 = y;
+                            }
                             print("x: $x, y: $y, temp: $temp")
                             MAP_MATRIX[x][y].temperature = temp.toDouble()
                         } catch (e: Exception) {
