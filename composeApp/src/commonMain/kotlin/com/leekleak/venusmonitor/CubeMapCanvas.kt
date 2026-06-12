@@ -34,12 +34,12 @@ val MAP_WIDTH_X: Int = MAP_MATRIX.size
 val MAP_WIDTH_Y: Int = MAP_MATRIX.firstOrNull()?.size ?: 0
 val MAX_DIMENSION: Float = maxOf(MAP_WIDTH_X, MAP_WIDTH_Y).toFloat()
 
-public var currentX37: Int = 0;
-public var currentY37: Int = 0;
-public var currentX87: Int = 0;
-public var currentY87: Int = 0;
+var currentX37: Float = 20f;
+var currentY37: Float = 20f;
+var currentX87: Float = 40f;
+var currentY87: Float = 40f;
 
-private fun getAdjustedNeighborhoodTemperature(gridX: Int, gridY: Int, radius: Int = 4): Double {
+private fun getAdjustedNeighborhoodTemperature(gridX: Int, gridY: Int, radius: Int = 6): Double {
     val currentTileTemp = MAP_MATRIX[gridX][gridY].temperature
     var maxInfluencedTemp = currentTileTemp
 
@@ -325,18 +325,13 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                         drawPath(path = sharedPath, color = Color(renderPool.colors[originalIdx]))
                     }
 
-                    val originPacked = projectPacked(
-                        0f, 0f, 4.8f,
-                        camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY
-                    )
-                    val lineBottomPacked = projectPacked(
-                        0f, 0f, 0f,
-                        camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY
-                    )
-                    val lineTopPacked = projectPacked(
-                        0f, 0f, SQUARE_SIZE * 3f,
-                        camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY
-                    )
+                    val originPacked = projectPacked(0f, 0f, 4.8f, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY)
+                    val lineBottomPacked = projectPacked(0f, 0f, 0f, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY)
+                    val lineTopPacked = projectPacked(0f, 0f, SQUARE_SIZE * 3f, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY)
+
+                    val robot37Packed = projectPacked(currentX37-50, currentY37-50, SQUARE_SIZE * 3f, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY)
+                    val robot87Packed = projectPacked(currentX87-50, currentY87-50, SQUARE_SIZE * 3f, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY)
+
                     if (lineBottomPacked != null && lineTopPacked != null && originPacked != null) {
                         drawText(
                             textMeasurer = textMeasurer,
@@ -376,6 +371,32 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                             text = "Pos Y",
                             topLeft = Offset(unpackX(yAxisPacked), unpackY(yAxisPacked)),
                             style = scaledTextStyle
+                        )
+                    }
+                    if (robot37Packed != null) {
+                        drawText(
+                            textMeasurer = textMeasurer,
+                            text = "Robot 37",
+                            topLeft = Offset(unpackX(robot37Packed), unpackY(robot37Packed)),
+                            style = scaledTextStyle
+                        )
+                        drawCircle(
+                            color = Color.Blue,
+                            radius = 4f*zoomScale,
+                            center = Offset(unpackX(robot37Packed), unpackY(robot37Packed)),
+                        )
+                    }
+                    if (robot87Packed != null) {
+                        drawText(
+                            textMeasurer = textMeasurer,
+                            text = "Robot 87",
+                            topLeft = Offset(unpackX(robot87Packed), unpackY(robot87Packed)),
+                            style = scaledTextStyle
+                        )
+                        drawCircle(
+                            color = Color.Red,
+                            radius = 4f*zoomScale,
+                            center = Offset(unpackX(robot87Packed), unpackY(robot87Packed)),
                         )
                     }
                 }

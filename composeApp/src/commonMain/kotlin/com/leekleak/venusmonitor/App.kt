@@ -88,6 +88,7 @@ fun App() {
                         modifier = Modifier
                             .width(600.dp)
                             .fillMaxHeight()
+                            .fillMaxWidth()
                     ) {
                         CubeMapCanvas()
                     }
