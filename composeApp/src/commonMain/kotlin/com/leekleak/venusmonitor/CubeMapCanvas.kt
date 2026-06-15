@@ -804,7 +804,7 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                             onClick = {
                                 val halfMapX = MAP_WIDTH_X / 2
                                 val halfMapY = MAP_WIDTH_Y / 2
-                                val borderRadius = 20
+                                val borderRadius = 30
 
                                 val minX = (halfMapX - borderRadius).coerceAtLeast(0)
                                 val maxX = (halfMapX + borderRadius).coerceAtMost(MAP_WIDTH_X - 1)

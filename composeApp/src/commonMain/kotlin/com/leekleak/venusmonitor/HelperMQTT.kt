@@ -13,6 +13,8 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.launch
 import kotlinx.io.bytestring.ByteString
 import kotlinx.io.bytestring.decodeToString
+import kotlin.math.abs
+import kotlin.math.sqrt
 import kotlin.time.Duration.Companion.hours
 
 class HelperMQTT {
@@ -47,7 +49,7 @@ class HelperMQTT {
                             val x = (message[3] * 100 + message[4] * 10 + message[5])
                             val y = (message[6] * 100 + message[7] * 10 + message[8])
 
-                            print("x: $x, y: $y, height: $height, color: $color\n")
+                            //print("x: $x, y: $y, height: $height, color: $color\n")
                             MAP_MATRIX[x][y].colorData = ColorData.entries[color]
                             MAP_MATRIX[x][y].objectData = ObjectData.entries[height]
                         } catch (e: Exception) {
@@ -68,7 +70,7 @@ class HelperMQTT {
                                 currentX87 = x;
                                 currentY87 = y;
                             }
-                            print("x: $x, y: $y, temp: $temp")
+                            //print("x: $x, y: $y, temp: $temp")
                             MAP_MATRIX[x][y].temperature = temp.toDouble()
                         } catch (e: Exception) {
                             print(line)
@@ -77,7 +79,6 @@ class HelperMQTT {
 
                     } else if (line[0] == '5' && number == 37) {
                         runExploration(number)
-                        
                     } else {
                         trySend(line)
                     }
@@ -173,7 +174,7 @@ class HelperMQTT {
     private fun findEnclosedArea(): List<Pair<Int, Int>> {
         val isBlackHole = Array(MAP_SIZE_X) { x ->
             BooleanArray(MAP_SIZE_Y) { y ->
-                MAP_MATRIX[x][y].objectData == ObjectData.HOLE && MAP_MATRIX[x][y].colorData == ColorData.BLACK
+                MAP_MATRIX[x][y].objectData == ObjectData.HOLE
             }
         }
 
@@ -244,9 +245,9 @@ class HelperMQTT {
         val maxY = area.maxOf { it.second }
 
         val points = mutableListOf<Pair<Int, Int>>()
-        // Scan a 30x30 area. Distribute points every 30 units.
-        for (x in minX + 15..maxX step 30) {
-            for (y in minY + 15..maxY step 30) {
+        // Scan a 30x30 area. Distribute points every 15 units.
+        for (x in minX + 15..maxX step 15) {
+            for (y in minY + 15..maxY step 15) {
                 if (areaSet.contains(x to y)) {
                     points.add(x to y)
                 } else {
@@ -260,7 +261,7 @@ class HelperMQTT {
         return points
     }
 
-    private fun findPathWithBuffer(sx: Int, sy: Int, ex: Int, ey: Int, buffer: Int): List<Pair<Int, Int>>? {
+    internal fun findPathWithBuffer(sx: Int, sy: Int, ex: Int, ey: Int, buffer: Int): List<Pair<Int, Int>>? {
         if (sx == ex && sy == ey) return emptyList()
 
         val isObstacle = Array(MAP_SIZE_X) { x ->
@@ -285,35 +286,112 @@ class HelperMQTT {
 
         if (!isSafe(sx, sy) || !isSafe(ex, ey)) return null
 
-        val queue = mutableListOf<Pair<Int, Int>>()
-        queue.add(sx to sy)
-        val parent = mutableMapOf<Pair<Int, Int>, Pair<Int, Int>>()
-        val visited = mutableSetOf<Pair<Int, Int>>()
-        visited.add(sx to sy)
+        data class Node(val x: Int, val y: Int, val g: Double, val h: Double) : Comparable<Node> {
+            val f = g + h
+            override fun compareTo(other: Node): Int = f.compareTo(other.f)
+        }
 
-        var head = 0
-        while (head < queue.size) {
-            val curr = queue[head++]
-            if (curr.first == ex && curr.second == ey) {
+        fun heuristic(x: Int, y: Int): Double {
+            val dx = abs(x - ex)
+            val dy = abs(y - ey)
+            // Octile distance for 8-connected grid
+            return (dx + dy) + (sqrt(2.0) - 2) * if (dx < dy) dx else dy
+        }
+
+        val openSet = mutableListOf<Node>()
+        openSet.add(Node(sx, sy, 0.0, heuristic(sx, sy)))
+        val parent = mutableMapOf<Pair<Int, Int>, Pair<Int, Int>>()
+        val gScore = mutableMapOf<Pair<Int, Int>, Double>()
+        gScore[sx to sy] = 0.0
+
+        while (openSet.isNotEmpty()) {
+            openSet.sortBy { it.f }
+            val current = openSet.removeAt(0)
+
+            if (current.x == ex && current.y == ey) {
                 val path = mutableListOf<Pair<Int, Int>>()
-                var p: Pair<Int, Int>? = curr
+                var p: Pair<Int, Int>? = ex to ey
                 while (p != null && p != (sx to sy)) {
                     path.add(p)
                     p = parent[p]
                 }
-                return path.reversed()
+                return simplifyPath(path.reversed(), buffer, isObstacle)
             }
 
-            val neighbors = listOf(curr.first - 1 to curr.second, curr.first + 1 to curr.second, curr.first to curr.second - 1, curr.first to curr.second + 1)
-            for (next in neighbors) {
-                if (next !in visited && isSafe(next.first, next.second)) {
-                    visited.add(next)
-                    parent[next] = curr
-                    queue.add(next)
+            for (dx in -1..1) {
+                for (dy in -1..1) {
+                    if (dx == 0 && dy == 0) continue
+                    val nx = current.x + dx
+                    val ny = current.y + dy
+
+                    if (isSafe(nx, ny)) {
+                        val moveCost = if (abs(dx) + abs(dy) == 2) sqrt(2.0) else 1.0
+                        val tentativeGScore = (gScore[current.x to current.y] ?: Double.MAX_VALUE) + moveCost
+                        if (tentativeGScore < (gScore[nx to ny] ?: Double.MAX_VALUE)) {
+                            parent[nx to ny] = current.x to current.y
+                            gScore[nx to ny] = tentativeGScore
+                            if (openSet.none { it.x == nx && it.y == ny }) {
+                                openSet.add(Node(nx, ny, tentativeGScore, heuristic(nx, ny)))
+                            }
+                        }
+                    }
                 }
             }
         }
         return null
+    }
+
+    private fun simplifyPath(path: List<Pair<Int, Int>>, buffer: Int, isObstacle: Array<BooleanArray>): List<Pair<Int, Int>> {
+        if (path.size <= 2) return path
+        val simplified = mutableListOf<Pair<Int, Int>>()
+        simplified.add(path[0])
+        var currentIdx = 0
+        while (currentIdx < path.size - 1) {
+            var nextIdx = path.size - 1
+            while (nextIdx > currentIdx + 1) {
+                if (hasLineOfSight(path[currentIdx], path[nextIdx], buffer, isObstacle)) {
+                    break
+                }
+                nextIdx--
+            }
+            simplified.add(path[nextIdx])
+            currentIdx = nextIdx
+        }
+        return simplified
+    }
+
+    private fun hasLineOfSight(p1: Pair<Int, Int>, p2: Pair<Int, Int>, buffer: Int, isObstacle: Array<BooleanArray>): Boolean {
+        var x = p1.first.toDouble()
+        var y = p1.second.toDouble()
+        val dx = p2.first - p1.first
+        val dy = p2.second - p1.second
+        val distance = sqrt((dx * dx + dy * dy).toDouble())
+        if (distance == 0.0) return true
+        
+        val stepX = dx / distance
+        val stepY = dy / distance
+        
+        val steps = distance.toInt()
+        for (i in 1..steps) {
+            x += stepX
+            y += stepY
+            if (!isSafeWithObstacles(x.toInt(), y.toInt(), buffer, isObstacle)) return false
+        }
+        return isSafeWithObstacles(p2.first, p2.second, buffer, isObstacle)
+    }
+
+    private fun isSafeWithObstacles(x: Int, y: Int, buffer: Int, isObstacle: Array<BooleanArray>): Boolean {
+        if (x !in 0 until MAP_SIZE_X || y !in 0 until MAP_SIZE_Y) return false
+        for (dx in -buffer..buffer) {
+            for (dy in -buffer..buffer) {
+                val nx = x + dx
+                val ny = y + dy
+                if (nx in 0 until MAP_SIZE_X && ny in 0 until MAP_SIZE_Y) {
+                    if (isObstacle[nx][ny]) return false
+                }
+            }
+        }
+        return true
     }
 
     suspend fun sendMessage(number: Int, message: ByteString) {

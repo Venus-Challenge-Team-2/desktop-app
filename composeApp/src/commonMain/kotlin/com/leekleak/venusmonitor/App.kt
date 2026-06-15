@@ -153,5 +153,13 @@ private fun RobotTab(
         }) {
             Text("Send Scan")
         }
+        HorizontalDivider()
+        Button(onClick = {
+            scope.launch {
+                helperMQTT.runExploration(number)
+            }
+        }) {
+            Text("Send Exploration")
+        }
     }
 }
