@@ -40,7 +40,7 @@ var currentY37: Int = 20;
 var currentX87: Int = 40;
 var currentY87: Int = 40;
 
-private fun getAdjustedNeighborhoodTemperature(gridX: Int, gridY: Int, radius: Int = 10): Double {
+private fun getAdjustedNeighborhoodTemperature(gridX: Int, gridY: Int, radius: Int = 30): Double {
     val currentTileTemp = MAP_MATRIX[gridX][gridY].temperature
     var maxInfluencedTemp = currentTileTemp
 
@@ -212,7 +212,7 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                 val focalLength = MAX_DIMENSION * 0.8f
 
                 val scaledTextStyle = baseTextStyle.copy(
-                    fontSize = (12f * zoomScale).toSp()
+                    fontSize = (20f * zoomScale).toSp()
                 )
 
                 val cosY = cos(angleY)
@@ -383,7 +383,7 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                         drawText(
                             textMeasurer = textMeasurer,
                             text = "Robot 37",
-                            topLeft = Offset(unpackX(robot37Packed), unpackY(robot37Packed)-10f),
+                            topLeft = Offset(unpackX(robot37Packed), unpackY(robot37Packed)-20f),
                             style = scaledTextStyle
                         )
                         drawCircle(
@@ -396,7 +396,7 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                         drawText(
                             textMeasurer = textMeasurer,
                             text = "Robot 87",
-                            topLeft = Offset(unpackX(robot87Packed), unpackY(robot87Packed)-10f),
+                            topLeft = Offset(unpackX(robot87Packed), unpackY(robot87Packed)-20f),
                             style = scaledTextStyle
                         )
                         drawCircle(
@@ -464,6 +464,40 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                             }
                         ) {
                             Text("Random Map")
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Button(
+                                onClick = {
+                                    val halfMapX = MAP_WIDTH_X / 2
+                                    val halfMapY = MAP_WIDTH_Y / 2
+                                    val borderRadius = 20
+
+                                    val minX = (halfMapX - borderRadius).coerceAtLeast(0)
+                                    val maxX = (halfMapX + borderRadius).coerceAtMost(MAP_WIDTH_X - 1)
+                                    val minY = (halfMapY - borderRadius).coerceAtLeast(0)
+                                    val maxY = (halfMapY + borderRadius).coerceAtMost(MAP_WIDTH_Y - 1)
+
+                                    for (gridX in MAP_MATRIX.indices) {
+                                        val row = MAP_MATRIX[gridX]
+                                        for (gridY in row.indices) {
+                                            val isXEdge = (gridX == minX || gridX == maxX) && (gridY in minY..maxY)
+                                            val isYEdge = (gridY == minY || gridY == maxY) && (gridX in minX..maxX)
+
+                                            if (isXEdge || isYEdge) {
+                                                row[gridY].objectData = ObjectData.HOLE
+                                            }
+                                        }
+                                    }
+                                    stateTrigger++
+                                    focusRequester.requestFocus()
+                                }
+                            ) {
+                                Text("Create Border")
+                            }
                         }
                     }
                 }
