@@ -35,10 +35,10 @@ val MAP_WIDTH_X: Int = MAP_MATRIX.size
 val MAP_WIDTH_Y: Int = MAP_MATRIX.firstOrNull()?.size ?: 0
 val MAX_DIMENSION: Float = maxOf(MAP_WIDTH_X, MAP_WIDTH_Y).toFloat()
 
-var currentX37: Int = 20;
-var currentY37: Int = 20;
-var currentX87: Int = 40;
-var currentY87: Int = 40;
+var currentX37: Int = 50;
+var currentY37: Int = 53;
+var currentX87: Int = 50;
+var currentY87: Int = 47;
 
 private fun getAdjustedNeighborhoodTemperature(gridX: Int, gridY: Int, radius: Int = 30): Double {
     val currentTileTemp = MAP_MATRIX[gridX][gridY].temperature
@@ -60,7 +60,7 @@ private fun getAdjustedNeighborhoodTemperature(gridX: Int, gridY: Int, radius: I
                 val distance = kotlin.math.sqrt((dx * dx + dy * dy).toFloat())
 
                 if (distance <= radius) {
-                    val falloff = 1.0 - (distance / radius)
+                    val falloff = 1.5 - (distance / radius)
                     val leakedHeat = neighborTemp * falloff
 
                     if (leakedHeat > maxInfluencedTemp) {
@@ -125,6 +125,8 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
     var stateTrigger by remember { mutableStateOf(0) }
 
     var showTemperatureMap by remember { mutableStateOf(false) }
+    var showRobot37 by remember { mutableStateOf(true) }
+    var showRobot87 by remember { mutableStateOf(true) }
     var angleX by remember { mutableStateOf(0.5f) }
     var angleY by remember { mutableStateOf(1f) }
     var camX by remember { mutableStateOf(0f) }
@@ -150,7 +152,7 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
     }
 
     LaunchedEffect(Unit) {
-        while(true){
+        while (true) {
             stateTrigger++
             delay(100.milliseconds)
         }
@@ -172,12 +174,30 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                             val rightY = -sin(angleY) * moveSpeed
 
                             when (keyEvent.key) {
-                                Key.W -> { camX += forwardX; camY += forwardY; true }
-                                Key.S -> { camX -= forwardX; camY -= forwardY; true }
-                                Key.A -> { camX -= rightX; camY -= rightY; true }
-                                Key.D -> { camX += rightX; camY += rightY; true }
-                                Key.DirectionUp -> { zoomScale = (zoomScale + 0.05f).coerceIn(minZoom, maxZoom); true }
-                                Key.DirectionDown -> { zoomScale = (zoomScale - 0.05f).coerceIn(minZoom, maxZoom); true }
+                                Key.W -> {
+                                    camX += forwardX; camY += forwardY; true
+                                }
+
+                                Key.S -> {
+                                    camX -= forwardX; camY -= forwardY; true
+                                }
+
+                                Key.A -> {
+                                    camX -= rightX; camY -= rightY; true
+                                }
+
+                                Key.D -> {
+                                    camX += rightX; camY += rightY; true
+                                }
+
+                                Key.DirectionUp -> {
+                                    zoomScale = (zoomScale + 0.05f).coerceIn(minZoom, maxZoom); true
+                                }
+
+                                Key.DirectionDown -> {
+                                    zoomScale = (zoomScale - 0.05f).coerceIn(minZoom, maxZoom); true
+                                }
+
                                 else -> false
                             }
                         } else false
@@ -239,15 +259,79 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                         val baseDepth = tx * sinY + ty * cosY
                         val sizeOffset = SQUARE_SIZE * 0.5f
 
-                        val p000 = projectPacked(x - sizeOffset, y - sizeOffset, 0f, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY) ?: continue
-                        val p100 = projectPacked(x + sizeOffset, y - sizeOffset, 0f, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY) ?: continue
-                        val p101 = projectPacked(x + sizeOffset, y + sizeOffset, 0f, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY) ?: continue
-                        val p001 = projectPacked(x - sizeOffset, y + sizeOffset, 0f, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY) ?: continue
+                        val p000 = projectPacked(
+                            x - sizeOffset,
+                            y - sizeOffset,
+                            0f,
+                            camX,
+                            camY,
+                            centerX,
+                            centerY,
+                            scale,
+                            cameraDistance,
+                            focalLength,
+                            cosX,
+                            sinX,
+                            cosY,
+                            sinY
+                        ) ?: continue
+                        val p100 = projectPacked(
+                            x + sizeOffset,
+                            y - sizeOffset,
+                            0f,
+                            camX,
+                            camY,
+                            centerX,
+                            centerY,
+                            scale,
+                            cameraDistance,
+                            focalLength,
+                            cosX,
+                            sinX,
+                            cosY,
+                            sinY
+                        ) ?: continue
+                        val p101 = projectPacked(
+                            x + sizeOffset,
+                            y + sizeOffset,
+                            0f,
+                            camX,
+                            camY,
+                            centerX,
+                            centerY,
+                            scale,
+                            cameraDistance,
+                            focalLength,
+                            cosX,
+                            sinX,
+                            cosY,
+                            sinY
+                        ) ?: continue
+                        val p001 = projectPacked(
+                            x - sizeOffset,
+                            y + sizeOffset,
+                            0f,
+                            camX,
+                            camY,
+                            centerX,
+                            centerY,
+                            scale,
+                            cameraDistance,
+                            focalLength,
+                            cosX,
+                            sinX,
+                            cosY,
+                            sinY
+                        ) ?: continue
 
-                        val f000x = unpackX(p000); val f000y = unpackY(p000)
-                        val f100x = unpackX(p100); val f100y = unpackY(p100)
-                        val f101x = unpackX(p101); val f101y = unpackY(p101)
-                        val f001x = unpackX(p001); val f001y = unpackY(p001)
+                        val f000x = unpackX(p000);
+                        val f000y = unpackY(p000)
+                        val f100x = unpackX(p100);
+                        val f100y = unpackY(p100)
+                        val f101x = unpackX(p101);
+                        val f101y = unpackY(p101)
+                        val f001x = unpackX(p001);
+                        val f001y = unpackY(p001)
 
                         val tileColor = if (showTemperatureMap) {
                             val adjustedTemp = getAdjustedNeighborhoodTemperature(gridX, gridY, radius = 10)
@@ -279,15 +363,79 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                                 else -> 0f
                             }
 
-                            val pt000 = projectPacked(x - sizeOffset, y - sizeOffset, height, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY) ?: continue
-                            val pt100 = projectPacked(x + sizeOffset, y - sizeOffset, height, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY) ?: continue
-                            val pt101 = projectPacked(x + sizeOffset, y + sizeOffset, height, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY) ?: continue
-                            val pt001 = projectPacked(x - sizeOffset, y + sizeOffset, height, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY) ?: continue
+                            val pt000 = projectPacked(
+                                x - sizeOffset,
+                                y - sizeOffset,
+                                height,
+                                camX,
+                                camY,
+                                centerX,
+                                centerY,
+                                scale,
+                                cameraDistance,
+                                focalLength,
+                                cosX,
+                                sinX,
+                                cosY,
+                                sinY
+                            ) ?: continue
+                            val pt100 = projectPacked(
+                                x + sizeOffset,
+                                y - sizeOffset,
+                                height,
+                                camX,
+                                camY,
+                                centerX,
+                                centerY,
+                                scale,
+                                cameraDistance,
+                                focalLength,
+                                cosX,
+                                sinX,
+                                cosY,
+                                sinY
+                            ) ?: continue
+                            val pt101 = projectPacked(
+                                x + sizeOffset,
+                                y + sizeOffset,
+                                height,
+                                camX,
+                                camY,
+                                centerX,
+                                centerY,
+                                scale,
+                                cameraDistance,
+                                focalLength,
+                                cosX,
+                                sinX,
+                                cosY,
+                                sinY
+                            ) ?: continue
+                            val pt001 = projectPacked(
+                                x - sizeOffset,
+                                y + sizeOffset,
+                                height,
+                                camX,
+                                camY,
+                                centerX,
+                                centerY,
+                                scale,
+                                cameraDistance,
+                                focalLength,
+                                cosX,
+                                sinX,
+                                cosY,
+                                sinY
+                            ) ?: continue
 
-                            val t000x = unpackX(pt000); val t000y = unpackY(pt000)
-                            val t100x = unpackX(pt100); val t100y = unpackY(pt100)
-                            val t101x = unpackX(pt101); val t101y = unpackY(pt101)
-                            val t001x = unpackX(pt001); val t001y = unpackY(pt001)
+                            val t000x = unpackX(pt000);
+                            val t000y = unpackY(pt000)
+                            val t100x = unpackX(pt100);
+                            val t100y = unpackY(pt100)
+                            val t101x = unpackX(pt101);
+                            val t101y = unpackY(pt101)
+                            val t001x = unpackX(pt001);
+                            val t001y = unpackY(pt001)
 
                             var baseColor = when (point.colorData) {
                                 ColorData.RED -> Color(0xFFD32F2F)
@@ -298,23 +446,82 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                             }
                             if (point.objectData == ObjectData.MOUNTAIN) baseColor = Color(0xFF8D6554)
 
-                            renderPool.addPolygon(baseDepth + 0.06f, t000x, t000y, t100x, t100y, t101x, t101y, t001x, t001y, baseColor)
+                            renderPool.addPolygon(
+                                baseDepth + 0.06f,
+                                t000x,
+                                t000y,
+                                t100x,
+                                t100y,
+                                t101x,
+                                t101y,
+                                t001x,
+                                t001y,
+                                baseColor
+                            )
 
                             if ((f101x - f001x) * (t001y - f001y) - (f101y - f001y) * (t001x - f001x) > 0) {
-                                val frontColor = Color(baseColor.red * 0.9f, baseColor.green * 0.9f, baseColor.blue * 0.9f)
-                                renderPool.addPolygon(baseDepth + 0.05f, f001x, f001y, f101x, f101y, t101x, t101y, t001x, t001y, frontColor)
+                                val frontColor =
+                                    Color(baseColor.red * 0.9f, baseColor.green * 0.9f, baseColor.blue * 0.9f)
+                                renderPool.addPolygon(
+                                    baseDepth + 0.05f,
+                                    f001x,
+                                    f001y,
+                                    f101x,
+                                    f101y,
+                                    t101x,
+                                    t101y,
+                                    t001x,
+                                    t001y,
+                                    frontColor
+                                )
                             }
                             if ((f100x - f101x) * (t101y - f101y) - (f100y - f101y) * (t101x - f101x) > 0) {
-                                val rightColor = Color(baseColor.red * 0.75f, baseColor.green * 0.75f, baseColor.blue * 0.75f)
-                                renderPool.addPolygon(baseDepth + 0.04f, f100x, f100y, f101x, f101y, t101x, t101y, t100x, t100y, rightColor)
+                                val rightColor =
+                                    Color(baseColor.red * 0.75f, baseColor.green * 0.75f, baseColor.blue * 0.75f)
+                                renderPool.addPolygon(
+                                    baseDepth + 0.04f,
+                                    f100x,
+                                    f100y,
+                                    f101x,
+                                    f101y,
+                                    t101x,
+                                    t101y,
+                                    t100x,
+                                    t100y,
+                                    rightColor
+                                )
                             }
                             if ((f001x - f000x) * (t000y - f000y) - (f001y - f000y) * (t000x - f000x) > 0) {
-                                val leftColor = Color(baseColor.red * 0.65f, baseColor.green * 0.65f, baseColor.blue * 0.65f)
-                                renderPool.addPolygon(baseDepth + 0.03f, f000x, f000y, f001x, f001y, t001x, t001y, t000x, t000y, leftColor)
+                                val leftColor =
+                                    Color(baseColor.red * 0.65f, baseColor.green * 0.65f, baseColor.blue * 0.65f)
+                                renderPool.addPolygon(
+                                    baseDepth + 0.03f,
+                                    f000x,
+                                    f000y,
+                                    f001x,
+                                    f001y,
+                                    t001x,
+                                    t001y,
+                                    t000x,
+                                    t000y,
+                                    leftColor
+                                )
                             }
                             if ((f000x - f100x) * (t100y - f100y) - (f000y - f100y) * (t100x - f100x) > 0) {
-                                val backColor = Color(baseColor.red * 0.5f, baseColor.green * 0.5f, baseColor.blue * 0.5f)
-                                renderPool.addPolygon(baseDepth - 0.05f, f100x, f100y, f000x, f000y, t000x, t000y, t100x, t100y, backColor)
+                                val backColor =
+                                    Color(baseColor.red * 0.5f, baseColor.green * 0.5f, baseColor.blue * 0.5f)
+                                renderPool.addPolygon(
+                                    baseDepth - 0.05f,
+                                    f100x,
+                                    f100y,
+                                    f000x,
+                                    f000y,
+                                    t000x,
+                                    t000y,
+                                    t100x,
+                                    t100y,
+                                    backColor
+                                )
                             }
                         }
                     }
@@ -337,12 +544,87 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                         drawPath(path = sharedPath, color = Color(renderPool.colors[originalIdx]))
                     }
 
-                    val originPacked = projectPacked(0f, 0f, 4.8f, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY)
-                    val lineBottomPacked = projectPacked(0f, 0f, 0f, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY)
-                    val lineTopPacked = projectPacked(0f, 0f, SQUARE_SIZE * 3f, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY)
+                    val originPacked = projectPacked(
+                        0f,
+                        0f,
+                        4.8f,
+                        camX,
+                        camY,
+                        centerX,
+                        centerY,
+                        scale,
+                        cameraDistance,
+                        focalLength,
+                        cosX,
+                        sinX,
+                        cosY,
+                        sinY
+                    )
+                    val lineBottomPacked = projectPacked(
+                        0f,
+                        0f,
+                        0f,
+                        camX,
+                        camY,
+                        centerX,
+                        centerY,
+                        scale,
+                        cameraDistance,
+                        focalLength,
+                        cosX,
+                        sinX,
+                        cosY,
+                        sinY
+                    )
+                    val lineTopPacked = projectPacked(
+                        0f,
+                        0f,
+                        SQUARE_SIZE * 3f,
+                        camX,
+                        camY,
+                        centerX,
+                        centerY,
+                        scale,
+                        cameraDistance,
+                        focalLength,
+                        cosX,
+                        sinX,
+                        cosY,
+                        sinY
+                    )
 
-                    val robot37Packed = projectPacked(currentX37*1f-50, currentY37*1f-50, 2f, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY)
-                    val robot87Packed = projectPacked(currentX87*1f-50, currentY87*1f-50, 2f, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY)
+                    val robot37Packed = projectPacked(
+                        currentX37 * 1f - 50,
+                        currentY37 * 1f - 50,
+                        2f,
+                        camX,
+                        camY,
+                        centerX,
+                        centerY,
+                        scale,
+                        cameraDistance,
+                        focalLength,
+                        cosX,
+                        sinX,
+                        cosY,
+                        sinY
+                    )
+                    val robot87Packed = projectPacked(
+                        currentX87 * 1f - 50,
+                        currentY87 * 1f - 50,
+                        2f,
+                        camX,
+                        camY,
+                        centerX,
+                        centerY,
+                        scale,
+                        cameraDistance,
+                        focalLength,
+                        cosX,
+                        sinX,
+                        cosY,
+                        sinY
+                    )
 
                     if (lineBottomPacked != null && lineTopPacked != null && originPacked != null) {
                         drawText(
@@ -359,7 +641,22 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                         )
                     }
 
-                    val xAxisPacked = projectPacked((MAP_WIDTH_X / 2f) * SQUARE_SIZE + axisOffset, 0f, 1.2f, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY)
+                    val xAxisPacked = projectPacked(
+                        (MAP_WIDTH_X / 2f) * SQUARE_SIZE + axisOffset,
+                        0f,
+                        1.2f,
+                        camX,
+                        camY,
+                        centerX,
+                        centerY,
+                        scale,
+                        cameraDistance,
+                        focalLength,
+                        cosX,
+                        sinX,
+                        cosY,
+                        sinY
+                    )
                     if (xAxisPacked != null) {
                         drawText(
                             textMeasurer = textMeasurer,
@@ -369,7 +666,22 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                         )
                     }
 
-                    val yAxisPacked = projectPacked(0f, (MAP_WIDTH_Y / 2f) * SQUARE_SIZE + axisOffset, 1.2f, camX, camY, centerX, centerY, scale, cameraDistance, focalLength, cosX, sinX, cosY, sinY)
+                    val yAxisPacked = projectPacked(
+                        0f,
+                        (MAP_WIDTH_Y / 2f) * SQUARE_SIZE + axisOffset,
+                        1.2f,
+                        camX,
+                        camY,
+                        centerX,
+                        centerY,
+                        scale,
+                        cameraDistance,
+                        focalLength,
+                        cosX,
+                        sinX,
+                        cosY,
+                        sinY
+                    )
 
                     if (yAxisPacked != null) {
                         drawText(
@@ -379,29 +691,29 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                             style = scaledTextStyle
                         )
                     }
-                    if (robot37Packed != null) {
+                    if (robot37Packed != null && showRobot37) {
                         drawText(
                             textMeasurer = textMeasurer,
                             text = "Robot 37",
-                            topLeft = Offset(unpackX(robot37Packed), unpackY(robot37Packed)-20f),
+                            topLeft = Offset(unpackX(robot37Packed), unpackY(robot37Packed) - 20f),
                             style = scaledTextStyle
                         )
                         drawCircle(
                             color = Color.Yellow,
-                            radius = 4f*zoomScale,
+                            radius = 4f * zoomScale,
                             center = Offset(unpackX(robot37Packed), unpackY(robot37Packed)),
                         )
                     }
-                    if (robot87Packed != null) {
+                    if (robot87Packed != null && showRobot87) {
                         drawText(
                             textMeasurer = textMeasurer,
                             text = "Robot 87",
-                            topLeft = Offset(unpackX(robot87Packed), unpackY(robot87Packed)-20f),
+                            topLeft = Offset(unpackX(robot87Packed), unpackY(robot87Packed) - 20f),
                             style = scaledTextStyle
                         )
                         drawCircle(
                             color = Color.Green,
-                            radius = 4f*zoomScale,
+                            radius = 4f * zoomScale,
                             center = Offset(unpackX(robot87Packed), unpackY(robot87Packed)),
                         )
                     }
@@ -409,95 +721,161 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
             }
         }
 
-        Column(Modifier.height(200.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+        ) {
             Card(
                 colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E24).copy(alpha = 0.95f)),
                 elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-                modifier = Modifier.width(300.dp).clip(RoundedCornerShape(10.dp))
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(180.dp)
+                    .clip(RoundedCornerShape(12.dp))
             ) {
-                Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                Row(
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Text("Show Temperature", color = Color.White)
-                        Switch(checked = showTemperatureMap, onCheckedChange = { showTemperatureMap = it })
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Button(
-                            onClick = {
-                                for (row in MAP_MATRIX) {
-                                    for (point in row) {
-                                        point.objectData = ObjectData.NO_OBJECT
-                                        point.colorData = ColorData.entries.random()
-                                        point.temperature = MIN_TEMP
-                                    }
-                                }
-                                stateTrigger++
-                                focusRequester.requestFocus()
-                            }
-                        ) {
-                            Text("Clear Map")
-                        }
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Button(
-                            onClick = {
-                                for (row in MAP_MATRIX) {
-                                    for (point in row) {
-                                        point.objectData = OBJECT_POOL.random()
-                                        point.colorData = ColorData.entries.random()
-                                        point.temperature = Random.nextDouble(MIN_TEMP, MAX_TEMP)
-                                    }
-                                }
-                                stateTrigger++
-                                focusRequester.requestFocus()
-                            }
-                        ) {
-                            Text("Random Map")
-                        }
+                        Text(
+                            text = "MAP CONTROLS",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.Gray
+                        )
+
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            Text("Temperature Overlay", color = Color.White)
+                            Switch(checked = showTemperatureMap, onCheckedChange = { showTemperatureMap = it })
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
                             Button(
+                                modifier = Modifier.weight(1f),
+                                contentPadding = PaddingValues(horizontal = 4.dp),
                                 onClick = {
-                                    val halfMapX = MAP_WIDTH_X / 2
-                                    val halfMapY = MAP_WIDTH_Y / 2
-                                    val borderRadius = 20
-
-                                    val minX = (halfMapX - borderRadius).coerceAtLeast(0)
-                                    val maxX = (halfMapX + borderRadius).coerceAtMost(MAP_WIDTH_X - 1)
-                                    val minY = (halfMapY - borderRadius).coerceAtLeast(0)
-                                    val maxY = (halfMapY + borderRadius).coerceAtMost(MAP_WIDTH_Y - 1)
-
-                                    for (gridX in MAP_MATRIX.indices) {
-                                        val row = MAP_MATRIX[gridX]
-                                        for (gridY in row.indices) {
-                                            val isXEdge = (gridX == minX || gridX == maxX) && (gridY in minY..maxY)
-                                            val isYEdge = (gridY == minY || gridY == maxY) && (gridX in minX..maxX)
-
-                                            if (isXEdge || isYEdge) {
-                                                row[gridY].objectData = ObjectData.HOLE
-                                            }
+                                    for (row in MAP_MATRIX) {
+                                        for (point in row) {
+                                            point.objectData = ObjectData.NO_OBJECT
+                                            point.colorData = ColorData.entries.random()
+                                            point.temperature = MIN_TEMP
                                         }
                                     }
                                     stateTrigger++
                                     focusRequester.requestFocus()
                                 }
                             ) {
-                                Text("Create Border")
+                                Text("Clear Map")
                             }
+
+                            Button(
+                                modifier = Modifier.weight(1f),
+                                contentPadding = PaddingValues(horizontal = 4.dp),
+                                onClick = {
+                                    for (row in MAP_MATRIX) {
+                                        for (point in row) {
+                                            point.objectData = OBJECT_POOL.random()
+                                            point.colorData = ColorData.entries.random()
+                                            point.temperature = Random.nextDouble(MIN_TEMP, MAX_TEMP)
+                                        }
+                                    }
+                                    stateTrigger++
+                                    focusRequester.requestFocus()
+                                }
+                            ) {
+                                Text("Random Map")
+                            }
+                        }
+
+                        Button(
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = {
+                                val halfMapX = MAP_WIDTH_X / 2
+                                val halfMapY = MAP_WIDTH_Y / 2
+                                val borderRadius = 20
+
+                                val minX = (halfMapX - borderRadius).coerceAtLeast(0)
+                                val maxX = (halfMapX + borderRadius).coerceAtMost(MAP_WIDTH_X - 1)
+                                val minY = (halfMapY - borderRadius).coerceAtLeast(0)
+                                val maxY = (halfMapY + borderRadius).coerceAtMost(MAP_WIDTH_Y - 1)
+
+                                for (gridX in MAP_MATRIX.indices) {
+                                    val row = MAP_MATRIX[gridX]
+                                    for (gridY in row.indices) {
+                                        val isXEdge = (gridX == minX || gridX == maxX) && (gridY in minY..maxY)
+                                        val isYEdge = (gridY == minY || gridY == maxY) && (gridX in minX..maxX)
+
+                                        if (isXEdge || isYEdge) {
+                                            row[gridY].objectData = ObjectData.HOLE
+                                        }
+                                    }
+                                }
+                                stateTrigger++
+                                focusRequester.requestFocus()
+                            }
+                        ) {
+                            Text("Create Border")
+                        }
+                    }
+
+                    VerticalDivider(
+                        modifier = Modifier.padding(vertical = 16.dp),
+                        thickness = 1.dp,
+                        color = Color.DarkGray
+                    )
+
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = "Robot Visibility",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.Gray
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Box(Modifier.size(10.dp).background(Color.Yellow, RoundedCornerShape(50)))
+                                Text("Robot 37", color = Color.White, style = MaterialTheme.typography.bodyMedium)
+                            }
+                            Switch(checked = showRobot37, onCheckedChange = { showRobot37 = it })
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Box(Modifier.size(10.dp).background(Color.Green, RoundedCornerShape(50)))
+                                Text("Robot 87", color = Color.White, style = MaterialTheme.typography.bodyMedium)
+                            }
+                            Switch(checked = showRobot87, onCheckedChange = { showRobot87 = it })
                         }
                     }
                 }
