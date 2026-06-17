@@ -21,7 +21,7 @@ class HelperMQTT {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     val clients = mutableMapOf<Int, MqttClient>()
 
-    private var explorationPoints = mutableListOf<Pair<Int, Int>>()
+    var explorationPoints = mutableListOf<Pair<Int, Int>>()
     private var currentPath = mutableListOf<Pair<Int, Int>>()
     private var isExplorationActive = false
     private var isWaitingForScan = false
@@ -151,7 +151,7 @@ class HelperMQTT {
             } else if (explorationPoints.isNotEmpty()) {
                 val nextTarget = explorationPoints.removeAt(0)
                 lastTarget = nextTarget
-                val path = findPathWithBuffer(currentX37, currentY37, nextTarget.first, nextTarget.second, 3)
+                val path = findPathWithBuffer(currentX37, currentY37, nextTarget.first, nextTarget.second, 1)
                 if (!path.isNullOrEmpty()) {
                     currentPath = path.toMutableList()
                     val nextStep = currentPath.removeAt(0)
