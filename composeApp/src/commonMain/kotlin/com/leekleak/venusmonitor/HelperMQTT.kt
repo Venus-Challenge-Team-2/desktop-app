@@ -26,6 +26,8 @@ class HelperMQTT {
     private var isExplorationActive = false
     private var isWaitingForScan = false
     private var lastTarget: Pair<Int, Int>? = null
+    private var isRobot37Busy = false
+    private var currentWaypoint: Pair<Int, Int>? = null
     fun getFlowBot(number: Int, pass: String): Flow<String> = callbackFlow {
         if (!clients.containsKey(number)) {
             clients[number] = MqttClient("mqtt.ics.ele.tue.nl", 1883) {
@@ -49,9 +51,65 @@ class HelperMQTT {
                             val x = (message[3] * 100 + message[4] * 10 + message[5])
                             val y = (message[6] * 100 + message[7] * 10 + message[8])
 
-                            //print("x: $x, y: $y, height: $height, color: $color\n")
-                            MAP_MATRIX[x][y].colorData = ColorData.entries[color]
-                            MAP_MATRIX[x][y].objectData = ObjectData.entries[height]
+                            val newObject = ObjectData.entries[height]
+                            val newColor = ColorData.entries[color]
+
+                            if (newObject == ObjectData.SMALL_CUBE || newObject == ObjectData.BIG_CUBE) {
+                                val range = 3
+                                var isDuplicate = false
+                                for (dx in -range..range) {
+                                    for (dy in -range..range) {
+                                        val nx = x + dx
+                                        val ny = y + dy
+                                        if (nx in 0 until MAP_SIZE_X && ny in 0 until MAP_SIZE_Y) {
+                                            val existing = MAP_MATRIX[nx][ny]
+                                            if ((existing.objectData == ObjectData.SMALL_CUBE || existing.objectData == ObjectData.BIG_CUBE) &&
+                                                existing.colorData == newColor && (nx != x || ny != y)
+                                            ) {
+                                                isDuplicate = true
+                                                break
+                                            }
+                                        }
+                                    }
+                                    if (isDuplicate) break
+                                }
+                                if (isDuplicate) return@forEach
+
+                                // Clear nearby mountains as they were likely misreported rocks
+                                for (dx in -range..range) {
+                                    for (dy in -range..range) {
+                                        val nx = x + dx
+                                        val ny = y + dy
+                                        if (nx in 0 until MAP_SIZE_X && ny in 0 until MAP_SIZE_Y) {
+                                            if (MAP_MATRIX[nx][ny].objectData == ObjectData.MOUNTAIN) {
+                                                MAP_MATRIX[nx][ny].objectData = ObjectData.NO_OBJECT
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            if (newObject == ObjectData.MOUNTAIN) {
+                                val blockRange = 3
+                                var nearBlock = false
+                                for (dx in -blockRange..blockRange) {
+                                    for (dy in -blockRange..blockRange) {
+                                        val nx = x + dx
+                                        val ny = y + dy
+                                        if (nx in 0 until MAP_SIZE_X && ny in 0 until MAP_SIZE_Y) {
+                                            val obj = MAP_MATRIX[nx][ny].objectData
+                                            if (obj == ObjectData.SMALL_CUBE || obj == ObjectData.BIG_CUBE) {
+                                                nearBlock = true; break
+                                            }
+                                        }
+                                    }
+                                    if (nearBlock) break
+                                }
+                                if (nearBlock) return@forEach
+                            }
+
+                            MAP_MATRIX[x][y].colorData = newColor
+                            MAP_MATRIX[x][y].objectData = newObject
                         } catch (e: Exception) {
                             println(e.message)
                         }
@@ -77,8 +135,13 @@ class HelperMQTT {
                             println(e.message)
                         }
 
-                    } else if (line[0] == '5' && number == 37) {
+                    } else if (line[0] == '5' && number == 37 && isRobot37Busy) {
+                        isRobot37Busy = false
                         runExploration(number)
+                        print("received idle")
+                    } else if (line[0] == '6' && number == 37) {
+                        isRobot37Busy = true
+                        print("received busy")
                     } else {
                         trySend(line)
                     }
@@ -112,7 +175,7 @@ class HelperMQTT {
     }
     
     suspend fun runExploration(number: Int) {
-        if (number != 37) return
+        if (number != 37 || isRobot37Busy) return
 
         if (!isExplorationActive) {
             val enclosedPoints = findEnclosedArea()
@@ -134,6 +197,18 @@ class HelperMQTT {
         }
 
         if (isExplorationActive) {
+            // Check for interruption: did we arrive at the waypoint we expected?
+            if (currentWaypoint != null) {
+                val dx = currentX37 - currentWaypoint!!.first
+                val dy = currentY37 - currentWaypoint!!.second
+                if (dx * dx + dy * dy > 4) { // More than 2 units away
+                    println("Robot 37 interrupted! Expected $currentWaypoint, at ($currentX37, $currentY37). Recalculating path to $lastTarget")
+                    currentPath.clear()
+                    isWaitingForScan = false // Do not scan here, we aren't at the target
+                }
+            }
+            currentWaypoint = null
+
             if (isWaitingForScan) {
                 scan(37)
                 isWaitingForScan = false
@@ -143,30 +218,42 @@ class HelperMQTT {
 
             if (currentPath.isNotEmpty()) {
                 val next = currentPath.removeAt(0)
+                currentWaypoint = next
                 moveToCoordinate(37, next.first, next.second)
                 println("Robot 37 moving to $next")
                 if (currentPath.isEmpty()) {
                     isWaitingForScan = true
                 }
-            } else if (explorationPoints.isNotEmpty()) {
-                val nextTarget = explorationPoints.removeAt(0)
-                lastTarget = nextTarget
-                val path = findPathWithBuffer(currentX37, currentY37, nextTarget.first, nextTarget.second, 1)
-                if (!path.isNullOrEmpty()) {
-                    currentPath = path.toMutableList()
-                    val nextStep = currentPath.removeAt(0)
-                    moveToCoordinate(37, nextStep.first, nextStep.second)
-                    println("Robot 37 starting path to $nextTarget, next step $nextStep")
-                    if (currentPath.isEmpty()) {
-                        isWaitingForScan = true
+            } else {
+                // If we have a target but no path (interrupted), or we need a new target
+                val target = if (lastTarget != null && (abs(currentX37 - lastTarget!!.first) > 2 || abs(currentY37 - lastTarget!!.second) > 2)) {
+                    lastTarget!!
+                } else if (explorationPoints.isNotEmpty()) {
+                    explorationPoints.removeAt(0).also { lastTarget = it }
+                } else {
+                    null
+                }
+
+                if (target != null) {
+                    val path = findPathWithBuffer(currentX37, currentY37, target.first, target.second, 1)
+                    if (!path.isNullOrEmpty()) {
+                        currentPath = path.toMutableList()
+                        val nextStep = currentPath.removeAt(0)
+                        currentWaypoint = nextStep
+                        moveToCoordinate(37, nextStep.first, nextStep.second)
+                        println("Robot 37 heading to $target, next step $nextStep")
+                        if (currentPath.isEmpty()) {
+                            isWaitingForScan = true
+                        }
+                    } else {
+                        println("Robot 37: Target $target unreachable, skipping.")
+                        lastTarget = null
+                        runExploration(37) // Try next point
                     }
                 } else {
-                    println("Robot 37: Target $nextTarget unreachable, skipping.")
-                    runExploration(37) // Try next point
+                    isExplorationActive = false
+                    println("Exploration finished for robot 37.")
                 }
-            } else {
-                isExplorationActive = false
-                println("Exploration finished for robot 37.")
             }
         }
     }
@@ -246,8 +333,8 @@ class HelperMQTT {
 
         val points = mutableListOf<Pair<Int, Int>>()
         // Scan a 30x30 area. Distribute points every 15 units.
-        for (x in minX + 15..maxX step 15) {
-            for (y in minY + 15..maxY step 15) {
+        for (x in minX + 10..maxX step 10) {
+            for (y in minY + 10..maxY step 10) {
                 if (areaSet.contains(x to y)) {
                     points.add(x to y)
                 } else {
@@ -416,5 +503,16 @@ class HelperMQTT {
             .map { char -> char.digitToInt().toByte() }
             .toByteArray()
         sendMessage(number, ByteString(message))
+    }
+
+    fun resetExploration() {
+        explorationPoints.clear()
+        currentPath.clear()
+        isExplorationActive = false
+        isWaitingForScan = false
+        lastTarget = null
+        isRobot37Busy = false
+        currentWaypoint = null
+        println("Exploration progress reset.")
     }
 }

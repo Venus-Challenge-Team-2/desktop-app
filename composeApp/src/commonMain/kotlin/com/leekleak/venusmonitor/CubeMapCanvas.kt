@@ -120,6 +120,7 @@ class RenderItemPool(initialCapacity: Int) {
 
 @Composable
 fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
+    val helperMQTT: HelperMQTT = koinInject()
     var stateTrigger by remember { mutableStateOf(0) }
 
     var showTemperatureMap by remember { mutableStateOf(false) }
@@ -156,8 +157,6 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
             delay(100.milliseconds)
         }
     }
-
-    val helperMQTT: HelperMQTT = koinInject()
 
     Column(Modifier.fillMaxHeight()) {
         Box(modifier = modifier.weight(1f)) {
@@ -478,6 +477,7 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                                             point.temperature = MIN_TEMP
                                         }
                                     }
+                                    helperMQTT.resetExploration()
                                     stateTrigger++
                                     focusRequester.requestFocus()
                                 }
@@ -509,7 +509,7 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                             onClick = {
                                 val halfMapX = MAP_SIZE_X / 2
                                 val halfMapY = MAP_SIZE_Y / 2
-                                val borderRadius = 30
+                                val borderRadius = 20
 
                                 val minX = (halfMapX - borderRadius).coerceAtLeast(0)
                                 val maxX = (halfMapX + borderRadius).coerceAtMost(MAP_SIZE_X - 1)
