@@ -158,8 +158,8 @@ class HelperMQTT {
     }
 
     suspend fun runAlgorithm(
-        borderRobotNumber: Int = 37, //placeholder
-        scanRobotNumber: Int = 87, //placeholder
+        borderRobotNumber: Int = 87,
+        scanRobotNumber: Int = 37, 
         borderTimeoutMillis: Long = 30_000
     ) {
         val border = calculateBorder(borderRobotNumber, borderTimeoutMillis)
