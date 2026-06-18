@@ -11,19 +11,23 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Surface
@@ -44,7 +48,12 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.painterResource
 import org.koin.compose.koinInject
+import venusmonitor.composeapp.generated.resources.Res
+import venusmonitor.composeapp.generated.resources.explore
+import venusmonitor.composeapp.generated.resources.keyboard_command_key
+import venusmonitor.composeapp.generated.resources.radar
 import kotlin.random.Random
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -69,24 +78,12 @@ fun App() {
                             .padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .weight(1.0f)
-                                .fillMaxHeight()
-                        ) {
-                            RobotTab(37, "CpE43hdC")
-                        }
-                        Box(
-                            modifier = Modifier
-                                .weight(1.0f)
-                                .fillMaxHeight()
-                        ) {
-                            RobotTab(87, "s5Bpx5Yo")
-                        }
+                        RobotTab(37, "CpE43hdC")
+                        RobotTab(87, "s5Bpx5Yo")
                     }
                     Box(
                         modifier = Modifier
-                            .width(800.dp)
+                            .weight(1f)
                             .fillMaxHeight()
 
                     ) {
@@ -143,6 +140,12 @@ private fun RobotTab(
                 helperMQTT.moveToCoordinate(number, x, y)
             }
         }) {
+            Icon(
+                painter = painterResource(Res.drawable.keyboard_command_key),
+                contentDescription = null,
+                modifier = Modifier.size(ButtonDefaults.IconSize)
+            )
+            Spacer(Modifier.size(ButtonDefaults.IconSpacing))
             Text("Move to coordinate")
         }
         HorizontalDivider()
@@ -151,6 +154,12 @@ private fun RobotTab(
                 helperMQTT.scan(number)
             }
         }) {
+            Icon(
+                painter = painterResource(Res.drawable.radar),
+                contentDescription = null,
+                modifier = Modifier.size(ButtonDefaults.IconSize)
+            )
+            Spacer(Modifier.size(ButtonDefaults.IconSpacing))
             Text("Send Scan")
         }
         HorizontalDivider()
@@ -159,6 +168,12 @@ private fun RobotTab(
                 helperMQTT.runExploration(number)
             }
         }) {
+            Icon(
+                painter = painterResource(Res.drawable.explore),
+                contentDescription = null,
+                modifier = Modifier.size(ButtonDefaults.IconSize)
+            )
+            Spacer(Modifier.size(ButtonDefaults.IconSpacing))
             Text("Send Exploration")
         }
     }

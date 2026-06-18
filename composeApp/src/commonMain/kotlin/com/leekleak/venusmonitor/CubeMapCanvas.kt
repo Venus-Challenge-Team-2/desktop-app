@@ -28,6 +28,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
+import org.jetbrains.compose.resources.painterResource
+import venusmonitor.composeapp.generated.resources.Res
+import venusmonitor.composeapp.generated.resources.border_style
+import venusmonitor.composeapp.generated.resources.casino
+import venusmonitor.composeapp.generated.resources.cleaning_services
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.random.Random
@@ -165,6 +170,7 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
         Box(modifier = modifier.weight(1f)) {
             Canvas(
                 modifier = modifier
+                    .clip(MaterialTheme.shapes.extraLarge)
                     .background(Color(0xFF13131A))
                     .focusRequester(focusRequester)
                     .focusable()
@@ -485,6 +491,12 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                                     focusRequester.requestFocus()
                                 }
                             ) {
+                                Icon(
+                                    painter = painterResource(Res.drawable.cleaning_services),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(ButtonDefaults.IconSize)
+                                )
+                                Spacer(Modifier.size(ButtonDefaults.IconSpacing))
                                 Text("Clear Map")
                             }
 
@@ -503,6 +515,12 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                                     focusRequester.requestFocus()
                                 }
                             ) {
+                                Icon(
+                                    painter = painterResource(Res.drawable.casino),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(ButtonDefaults.IconSize)
+                                )
+                                Spacer(Modifier.size(ButtonDefaults.IconSpacing))
                                 Text("Random Map")
                             }
                         }
@@ -537,6 +555,12 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                                 focusRequester.requestFocus()
                             }
                         ) {
+                            Icon(
+                                painter = painterResource(Res.drawable.border_style),
+                                contentDescription = null,
+                                modifier = Modifier.size(ButtonDefaults.IconSize)
+                            )
+                            Spacer(Modifier.size(ButtonDefaults.IconSpacing))
                             Text("Create Border")
                         }
                     }
