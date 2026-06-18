@@ -24,7 +24,9 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import kotlin.math.cos
 import kotlin.math.sin
@@ -121,6 +123,7 @@ class RenderItemPool(initialCapacity: Int) {
 @Composable
 fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
     val helperMQTT: HelperMQTT = koinInject()
+    val scope = rememberCoroutineScope()
     var stateTrigger by remember { mutableStateOf(0) }
 
     var showTemperatureMap by remember { mutableStateOf(false) }
@@ -509,7 +512,7 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                             onClick = {
                                 val halfMapX = MAP_SIZE_X / 2
                                 val halfMapY = MAP_SIZE_Y / 2
-                                val borderRadius = 20
+                                val borderRadius = 15
 
                                 val minX = (halfMapX - borderRadius).coerceAtLeast(0)
                                 val maxX = (halfMapX + borderRadius).coerceAtMost(MAP_SIZE_X - 1)
@@ -524,6 +527,9 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
 
                                         if (isXEdge || isYEdge) {
                                             row[gridY].objectData = ObjectData.HOLE
+                                            scope.launch {
+                                                helperMQTT.sendObstacle(37, gridX, gridY, ObjectData.HOLE.ordinal)
+                                            }
                                         }
                                     }
                                 }

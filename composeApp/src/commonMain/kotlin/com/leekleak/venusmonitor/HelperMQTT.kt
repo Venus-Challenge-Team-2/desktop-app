@@ -22,12 +22,7 @@ class HelperMQTT {
     val clients = mutableMapOf<Int, MqttClient>()
 
     var explorationPoints = mutableListOf<Pair<Int, Int>>()
-    private var currentPath = mutableListOf<Pair<Int, Int>>()
-    private var isExplorationActive = false
-    private var isWaitingForScan = false
-    private var lastTarget: Pair<Int, Int>? = null
-    private var isRobot37Busy = false
-    private var currentWaypoint: Pair<Int, Int>? = null
+
     fun getFlowBot(number: Int, pass: String): Flow<String> = callbackFlow {
         if (!clients.containsKey(number)) {
             clients[number] = MqttClient("mqtt.ics.ele.tue.nl", 1883) {
@@ -110,6 +105,11 @@ class HelperMQTT {
 
                             MAP_MATRIX[x][y].colorData = newColor
                             MAP_MATRIX[x][y].objectData = newObject
+
+                            // Forward map update to robot 37 if it came from robot 87
+                            if (number == 87) {
+                                sendObstacle(37, x, y, height)
+                            }
                         } catch (e: Exception) {
                             println(e.message)
                         }
@@ -135,13 +135,6 @@ class HelperMQTT {
                             println(e.message)
                         }
 
-                    } else if (line[0] == '5' && number == 37 && isRobot37Busy) {
-                        isRobot37Busy = false
-                        runExploration(number)
-                        print("received idle")
-                    } else if (line[0] == '6' && number == 37) {
-                        isRobot37Busy = true
-                        print("received busy")
                     } else {
                         trySend(line)
                     }
@@ -173,313 +166,6 @@ class HelperMQTT {
             println("MQTT Flow closed.")
         }
     }
-    
-    suspend fun runExploration(number: Int) {
-        if (number != 37 || isRobot37Busy) return
-
-        if (!isExplorationActive) {
-            val enclosedPoints = findEnclosedArea()
-            if (enclosedPoints.size >= 30 * 30) {
-                val minX = enclosedPoints.minOf { it.first }
-                val maxX = enclosedPoints.maxOf { it.first }
-                val minY = enclosedPoints.minOf { it.second }
-                val maxY = enclosedPoints.maxOf { it.second }
-
-                if (maxX - minX >= 29 && maxY - minY >= 29) {
-                    explorationPoints = planScanPoints(enclosedPoints)
-                    if (explorationPoints.isNotEmpty()) {
-                        isExplorationActive = true
-                        isWaitingForScan = false
-                        println("Exploration started for robot 37. Points: ${explorationPoints.size}")
-                    }
-                }
-            }
-        }
-
-        if (isExplorationActive) {
-            // Check for interruption: did we arrive at the waypoint we expected?
-            if (currentWaypoint != null) {
-                val dx = currentX37 - currentWaypoint!!.first
-                val dy = currentY37 - currentWaypoint!!.second
-                if (dx * dx + dy * dy > 4) { // More than 2 units away
-                    println("Robot 37 interrupted! Expected $currentWaypoint, at ($currentX37, $currentY37). Recalculating path to $lastTarget")
-                    currentPath.clear()
-                    isWaitingForScan = false // Do not scan here, we aren't at the target
-                }
-            }
-            currentWaypoint = null
-
-            if (isWaitingForScan) {
-                scan(37)
-                isWaitingForScan = false
-                println("Robot 37 scanning at $lastTarget")
-                return
-            }
-
-            if (currentPath.isNotEmpty()) {
-                val next = currentPath.removeAt(0)
-                currentWaypoint = next
-                moveToCoordinate(37, next.first, next.second)
-                println("Robot 37 moving to $next")
-                if (currentPath.isEmpty()) {
-                    isWaitingForScan = true
-                }
-            } else {
-                // If we have a target but no path (interrupted), or we need a new target
-                val target = if (lastTarget != null && (abs(currentX37 - lastTarget!!.first) > 2 || abs(currentY37 - lastTarget!!.second) > 2)) {
-                    lastTarget!!
-                } else if (explorationPoints.isNotEmpty()) {
-                    explorationPoints.removeAt(0).also { lastTarget = it }
-                } else {
-                    null
-                }
-
-                if (target != null) {
-                    val path = findPathWithBuffer(currentX37, currentY37, target.first, target.second, 1)
-                    if (!path.isNullOrEmpty()) {
-                        currentPath = path.toMutableList()
-                        val nextStep = currentPath.removeAt(0)
-                        currentWaypoint = nextStep
-                        moveToCoordinate(37, nextStep.first, nextStep.second)
-                        println("Robot 37 heading to $target, next step $nextStep")
-                        if (currentPath.isEmpty()) {
-                            isWaitingForScan = true
-                        }
-                    } else {
-                        println("Robot 37: Target $target unreachable, skipping.")
-                        lastTarget = null
-                        runExploration(37) // Try next point
-                    }
-                } else {
-                    isExplorationActive = false
-                    println("Exploration finished for robot 37.")
-                }
-            }
-        }
-    }
-
-    private fun findEnclosedArea(): List<Pair<Int, Int>> {
-        val isBlackHole = Array(MAP_SIZE_X) { x ->
-            BooleanArray(MAP_SIZE_Y) { y ->
-                MAP_MATRIX[x][y].objectData == ObjectData.HOLE
-            }
-        }
-
-        val isOutside = Array(MAP_SIZE_X) { BooleanArray(MAP_SIZE_Y) }
-        val queue = mutableListOf<Pair<Int, Int>>()
-
-        for (x in 0 until MAP_SIZE_X) {
-            if (!isBlackHole[x][0]) { isOutside[x][0] = true; queue.add(x to 0) }
-            if (!isBlackHole[x][MAP_SIZE_Y - 1]) { isOutside[x][MAP_SIZE_Y - 1] = true; queue.add(x to MAP_SIZE_Y - 1) }
-        }
-        for (y in 0 until MAP_SIZE_Y) {
-            if (!isBlackHole[0][y]) { isOutside[0][y] = true; queue.add(0 to y) }
-            if (!isBlackHole[MAP_SIZE_X - 1][y]) { isOutside[MAP_SIZE_X - 1][y] = true; queue.add(MAP_SIZE_X - 1 to y) }
-        }
-
-        var head = 0
-        while (head < queue.size) {
-            val (cx, cy) = queue[head++]
-            val neighbors = listOf(cx - 1 to cy, cx + 1 to cy, cx to cy - 1, cx to cy + 1)
-            for ((nx, ny) in neighbors) {
-                if (nx in 0 until MAP_SIZE_X && ny in 0 until MAP_SIZE_Y && !isOutside[nx][ny] && !isBlackHole[nx][ny]) {
-                    isOutside[nx][ny] = true
-                    queue.add(nx to ny)
-                }
-            }
-        }
-
-        val enclosedComponents = mutableListOf<MutableList<Pair<Int, Int>>>()
-        val visitedEnclosed = Array(MAP_SIZE_X) { BooleanArray(MAP_SIZE_Y) }
-
-        for (x in 0 until MAP_SIZE_X) {
-            for (y in 0 until MAP_SIZE_Y) {
-                if (!isOutside[x][y] && !isBlackHole[x][y] && !visitedEnclosed[x][y]) {
-                    val component = mutableListOf<Pair<Int, Int>>()
-                    val compQueue = mutableListOf<Pair<Int, Int>>()
-                    val start = x to y
-                    visitedEnclosed[x][y] = true
-                    compQueue.add(start)
-                    component.add(start)
-
-                    var qHead = 0
-                    while (qHead < compQueue.size) {
-                        val (cx, cy) = compQueue[qHead++]
-                        val neighbors = listOf(cx - 1 to cy, cx + 1 to cy, cx to cy - 1, cx to cy + 1)
-                        for ((nx, ny) in neighbors) {
-                            if (nx in 0 until MAP_SIZE_X && ny in 0 until MAP_SIZE_Y &&
-                                !isOutside[nx][ny] && !isBlackHole[nx][ny] && !visitedEnclosed[nx][ny]
-                            ) {
-                                visitedEnclosed[nx][ny] = true
-                                compQueue.add(nx to ny)
-                                component.add(nx to ny)
-                            }
-                        }
-                    }
-                    enclosedComponents.add(component)
-                }
-            }
-        }
-        return enclosedComponents.maxByOrNull { it.size } ?: emptyList()
-    }
-
-    private fun planScanPoints(area: List<Pair<Int, Int>>): MutableList<Pair<Int, Int>> {
-        if (area.isEmpty()) return mutableListOf()
-        val areaSet = area.toSet()
-        val minX = area.minOf { it.first }
-        val maxX = area.maxOf { it.first }
-        val minY = area.minOf { it.second }
-        val maxY = area.maxOf { it.second }
-
-        val points = mutableListOf<Pair<Int, Int>>()
-        // Scan a 30x30 area. Distribute points every 15 units.
-        for (x in minX + 10..maxX step 10) {
-            for (y in minY + 10..maxY step 10) {
-                if (areaSet.contains(x to y)) {
-                    points.add(x to y)
-                } else {
-                    // If center is not in area, find nearest in area
-                    area.minByOrNull { (ax, ay) -> (ax - x) * (ax - x) + (ay - y) * (ay - y) }?.let {
-                        if (!points.contains(it)) points.add(it)
-                    }
-                }
-            }
-        }
-        return points
-    }
-
-    internal fun findPathWithBuffer(sx: Int, sy: Int, ex: Int, ey: Int, buffer: Int): List<Pair<Int, Int>>? {
-        if (sx == ex && sy == ey) return emptyList()
-
-        val isObstacle = Array(MAP_SIZE_X) { x ->
-            BooleanArray(MAP_SIZE_Y) { y ->
-                MAP_MATRIX[x][y].objectData != ObjectData.NO_OBJECT
-            }
-        }
-
-        fun isSafe(x: Int, y: Int): Boolean {
-            if (x !in 0 until MAP_SIZE_X || y !in 0 until MAP_SIZE_Y) return false
-            for (dx in -buffer..buffer) {
-                for (dy in -buffer..buffer) {
-                    val nx = x + dx
-                    val ny = y + dy
-                    if (nx in 0 until MAP_SIZE_X && ny in 0 until MAP_SIZE_Y) {
-                        if (isObstacle[nx][ny]) return false
-                    }
-                }
-            }
-            return true
-        }
-
-        if (!isSafe(sx, sy) || !isSafe(ex, ey)) return null
-
-        data class Node(val x: Int, val y: Int, val g: Double, val h: Double) : Comparable<Node> {
-            val f = g + h
-            override fun compareTo(other: Node): Int = f.compareTo(other.f)
-        }
-
-        fun heuristic(x: Int, y: Int): Double {
-            val dx = abs(x - ex)
-            val dy = abs(y - ey)
-            // Octile distance for 8-connected grid
-            return (dx + dy) + (sqrt(2.0) - 2) * if (dx < dy) dx else dy
-        }
-
-        val openSet = mutableListOf<Node>()
-        openSet.add(Node(sx, sy, 0.0, heuristic(sx, sy)))
-        val parent = mutableMapOf<Pair<Int, Int>, Pair<Int, Int>>()
-        val gScore = mutableMapOf<Pair<Int, Int>, Double>()
-        gScore[sx to sy] = 0.0
-
-        while (openSet.isNotEmpty()) {
-            openSet.sortBy { it.f }
-            val current = openSet.removeAt(0)
-
-            if (current.x == ex && current.y == ey) {
-                val path = mutableListOf<Pair<Int, Int>>()
-                var p: Pair<Int, Int>? = ex to ey
-                while (p != null && p != (sx to sy)) {
-                    path.add(p)
-                    p = parent[p]
-                }
-                return simplifyPath(path.reversed(), buffer, isObstacle)
-            }
-
-            for (dx in -1..1) {
-                for (dy in -1..1) {
-                    if (dx == 0 && dy == 0) continue
-                    val nx = current.x + dx
-                    val ny = current.y + dy
-
-                    if (isSafe(nx, ny)) {
-                        val moveCost = if (abs(dx) + abs(dy) == 2) sqrt(2.0) else 1.0
-                        val tentativeGScore = (gScore[current.x to current.y] ?: Double.MAX_VALUE) + moveCost
-                        if (tentativeGScore < (gScore[nx to ny] ?: Double.MAX_VALUE)) {
-                            parent[nx to ny] = current.x to current.y
-                            gScore[nx to ny] = tentativeGScore
-                            if (openSet.none { it.x == nx && it.y == ny }) {
-                                openSet.add(Node(nx, ny, tentativeGScore, heuristic(nx, ny)))
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        return null
-    }
-
-    private fun simplifyPath(path: List<Pair<Int, Int>>, buffer: Int, isObstacle: Array<BooleanArray>): List<Pair<Int, Int>> {
-        if (path.size <= 2) return path
-        val simplified = mutableListOf<Pair<Int, Int>>()
-        simplified.add(path[0])
-        var currentIdx = 0
-        while (currentIdx < path.size - 1) {
-            var nextIdx = path.size - 1
-            while (nextIdx > currentIdx + 1) {
-                if (hasLineOfSight(path[currentIdx], path[nextIdx], buffer, isObstacle)) {
-                    break
-                }
-                nextIdx--
-            }
-            simplified.add(path[nextIdx])
-            currentIdx = nextIdx
-        }
-        return simplified
-    }
-
-    private fun hasLineOfSight(p1: Pair<Int, Int>, p2: Pair<Int, Int>, buffer: Int, isObstacle: Array<BooleanArray>): Boolean {
-        var x = p1.first.toDouble()
-        var y = p1.second.toDouble()
-        val dx = p2.first - p1.first
-        val dy = p2.second - p1.second
-        val distance = sqrt((dx * dx + dy * dy).toDouble())
-        if (distance == 0.0) return true
-        
-        val stepX = dx / distance
-        val stepY = dy / distance
-        
-        val steps = distance.toInt()
-        for (i in 1..steps) {
-            x += stepX
-            y += stepY
-            if (!isSafeWithObstacles(x.toInt(), y.toInt(), buffer, isObstacle)) return false
-        }
-        return isSafeWithObstacles(p2.first, p2.second, buffer, isObstacle)
-    }
-
-    private fun isSafeWithObstacles(x: Int, y: Int, buffer: Int, isObstacle: Array<BooleanArray>): Boolean {
-        if (x !in 0 until MAP_SIZE_X || y !in 0 until MAP_SIZE_Y) return false
-        for (dx in -buffer..buffer) {
-            for (dy in -buffer..buffer) {
-                val nx = x + dx
-                val ny = y + dy
-                if (nx in 0 until MAP_SIZE_X && ny in 0 until MAP_SIZE_Y) {
-                    if (isObstacle[nx][ny]) return false
-                }
-            }
-        }
-        return true
-    }
 
     suspend fun sendMessage(number: Int, message: ByteString) {
         clients[number]?.let {
@@ -489,6 +175,13 @@ class HelperMQTT {
                 payload(message)
             })
         }
+    }
+
+    suspend fun sendObstacle(number: Int, x: Int, y: Int, type: Int) {
+        val message = "3${type}${x.toString().padStart(3, '0')}${y.toString().padStart(3, '0')}"
+            .map { char -> char.digitToInt().toByte() }
+            .toByteArray()
+        sendMessage(number, ByteString(message))
     }
 
     suspend fun moveToCoordinate(number: Int, x: Int, y: Int) {
@@ -505,14 +198,15 @@ class HelperMQTT {
         sendMessage(number, ByteString(message))
     }
 
+    suspend fun runExploration(number: Int) {
+        val message = "4"
+            .map { char -> char.digitToInt().toByte() }
+            .toByteArray()
+        sendMessage(number, ByteString(message))
+    }
+
     fun resetExploration() {
         explorationPoints.clear()
-        currentPath.clear()
-        isExplorationActive = false
-        isWaitingForScan = false
-        lastTarget = null
-        isRobot37Busy = false
-        currentWaypoint = null
         println("Exploration progress reset.")
     }
 }
