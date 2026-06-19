@@ -199,6 +199,12 @@ class HelperMQTT {
     }
 
     suspend fun runExploration(number: Int) {
+        if (number == 87) {
+            sendMessage(number, ByteString("START".encodeToByteArray()))
+            println("Boundary exploration start sent to robot 87.")
+            return
+        }
+
         val message = "4"
             .map { char -> char.digitToInt().toByte() }
             .toByteArray()

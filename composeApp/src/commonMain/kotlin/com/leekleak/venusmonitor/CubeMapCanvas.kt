@@ -537,16 +537,19 @@ fun CubeMapCanvas(modifier: Modifier = Modifier.fillMaxSize()) {
                                 val minY = (halfMapY - borderRadius).coerceAtLeast(0)
                                 val maxY = (halfMapY + borderRadius).coerceAtMost(MAP_SIZE_Y - 1)
 
-                                for (gridX in MAP_MATRIX.indices) {
-                                    val row = MAP_MATRIX[gridX]
-                                    for (gridY in row.indices) {
-                                        val isXEdge = (gridX == minX || gridX == maxX) && (gridY in minY..maxY)
-                                        val isYEdge = (gridY == minY || gridY == maxY) && (gridX in minX..maxX)
+                                scope.launch {
+                                    for (gridX in MAP_MATRIX.indices) {
+                                        val row = MAP_MATRIX[gridX]
+                                        for (gridY in row.indices) {
+                                            val isXEdge =
+                                                (gridX == minX || gridX == maxX) && (gridY in minY..maxY)
+                                            val isYEdge =
+                                                (gridY == minY || gridY == maxY) && (gridX in minX..maxX)
 
-                                        if (isXEdge || isYEdge) {
-                                            row[gridY].objectData = ObjectData.HOLE
-                                            scope.launch {
+                                            if (isXEdge || isYEdge) {
+                                                row[gridY].objectData = ObjectData.HOLE
                                                 helperMQTT.sendObstacle(37, gridX, gridY, ObjectData.HOLE.ordinal)
+                                                delay(20.milliseconds)
                                             }
                                         }
                                     }
